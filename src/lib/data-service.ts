@@ -446,12 +446,9 @@ export async function getTransactionById(id: number): Promise<TransactionData | 
 }
 
 export interface CreateTransactionInput {
-  customerType: "Instansi / Pesantren" | "Perorangan";
-  institutionName?: string;
   recipientName: string;
   recipientPhone: string;
   city: string;
-  province?: string;
   fullAddress?: string;
   paymentStatus: "Belum Lunas" | "Lunas";
   shippingStatus: "Belum Dikirim" | "Sudah Dikirim";
@@ -511,10 +508,7 @@ export async function createTransaction(
   const txId = store.nextIds.transaction++;
   const invoiceNumber = `KP-${yearMonth}-${txId.toString().padStart(4, "0")}`;
 
-  const customerName =
-    input.customerType === "Instansi / Pesantren" && input.institutionName
-      ? `${input.institutionName} (${input.recipientName})`
-      : input.recipientName;
+  const customerName = input.recipientName;
 
   let totalAmount = 0;
   const transactionItemsData: TransactionItemData[] = input.items.map((it) => {

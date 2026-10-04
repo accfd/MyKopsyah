@@ -6,10 +6,8 @@ import { ProductData } from "@/lib/data-service";
 import { formatRupiah } from "@/lib/format";
 import { submitTransactionAction } from "@/app/actions";
 import {
-  Building2,
   User,
   Phone,
-  MapPin,
   FileText,
   Plus,
   Trash2,
@@ -17,6 +15,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
+import CityCombobox from "@/components/CityCombobox";
 
 interface CartItem {
   productId: number;
@@ -35,10 +34,6 @@ export default function KasirForm({ products }: { products: ProductData[] }) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Customer state
-  const [customerType, setCustomerType] = useState<"Instansi / Pesantren" | "Perorangan">(
-    "Instansi / Pesantren"
-  );
-  const [institutionName, setInstitutionName] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
   const [city, setCity] = useState("");
@@ -150,11 +145,6 @@ export default function KasirForm({ products }: { products: ProductData[] }) {
     e.preventDefault();
     setErrorMessage(null);
 
-    if (customerType === "Instansi / Pesantren" && !institutionName.trim()) {
-      setErrorMessage("Silakan isi nama instansi / pondok pesantren pemesan.");
-      return;
-    }
-
     if (!recipientName.trim()) {
       setErrorMessage("Silakan isi nama penerima pesanan.");
       return;
@@ -177,8 +167,6 @@ export default function KasirForm({ products }: { products: ProductData[] }) {
 
     startTransition(async () => {
       const res = await submitTransactionAction({
-        customerType,
-        institutionName: institutionName.trim() || undefined,
         recipientName: recipientName.trim(),
         recipientPhone: recipientPhone.trim(),
         city: city.trim(),
@@ -213,73 +201,30 @@ export default function KasirForm({ products }: { products: ProductData[] }) {
       )}
 
       {/* Bagian 1: Data Pelanggan */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-4">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-5">
         <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
           <User className="w-5 h-5 text-emerald-700" />
-          <span>1. Informasi Pelanggan & Tujuan Kirim</span>
+          <span>1. Informasi Penerima & Tujuan Kirim</span>
         </h3>
 
-        {/* Jenis Pelanggan Toggle */}
-        <div className="flex rounded-xl bg-slate-100 p-1 max-w-md">
-          <button
-            type="button"
-            onClick={() => setCustomerType("Instansi / Pesantren")}
-            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${
-              customerType === "Instansi / Pesantren"
-                ? "bg-white text-emerald-800 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Building2 className="w-4 h-4" />
-            <span>Instansi / Pesantren</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setCustomerType("Perorangan")}
-            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${
-              customerType === "Perorangan"
-                ? "bg-white text-emerald-800 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <User className="w-4 h-4" />
-            <span>Perorangan</span>
-          </button>
-        </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {customerType === "Instansi / Pesantren" && (
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-semibold text-slate-800 mb-1">
-                Nama Instansi / Pondok Pesantren <span className="text-rose-500">*</span>:
-              </label>
-              <input
-                type="text"
-                value={institutionName}
-                onChange={(e) => setInstitutionName(e.target.value)}
-                placeholder="Contoh: Ponpes Al-Hidayah, Yayasan As-Salam"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 text-slate-900"
-                required={customerType === "Instansi / Pesantren"}
-              />
-            </div>
-          )}
-
           <div>
-            <label className="block text-sm font-semibold text-slate-800 mb-1">
-              Nama Orang Penerima <span className="text-rose-500">*</span>:
+            <label className="block text-sm font-semibold text-slate-800 mb-1.5">
+              Nama Penerima <span className="text-rose-500">*</span>:
             </label>
             <input
               type="text"
               value={recipientName}
               onChange={(e) => setRecipientName(e.target.value)}
-              placeholder="Contoh: Ust. Fuadi, Ibu Rina"
+              placeholder="Contoh: Ust. Fuadi, Ibu Rina, Ponpes Al-Hidayah"
               className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 text-slate-900"
               required
             />
+            <p className="text-xs text-slate-500 mt-1">Tulis nama lengkap penerima atau nama pesantren / instansi</p>
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-800 mb-1">
+            <label className="block text-sm font-semibold text-slate-800 mb-1.5">
               Nomor WhatsApp Penerima <span className="text-rose-500">*</span>:
             </label>
             <div className="relative">
@@ -295,26 +240,12 @@ export default function KasirForm({ products }: { products: ProductData[] }) {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-slate-800 mb-1">
-              Kota / Kabupaten Tujuan <span className="text-rose-500">*</span>:
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder="Contoh: Kab. Sleman, Kota Solo"
-                className="w-full px-4 py-3 pl-11 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 text-slate-900"
-                required
-              />
-              <MapPin className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            </div>
-            <p className="text-xs text-slate-500 mt-1">Digunakan untuk rekapitulasi wilayah</p>
+          <div className="sm:col-span-2">
+            <CityCombobox value={city} onChange={setCity} required />
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-slate-800 mb-1">
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-semibold text-slate-800 mb-1.5">
               Alamat Lengkap Pengiriman:
             </label>
             <input
