@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ProductData } from "@/lib/data-service";
 import { formatRupiah } from "@/lib/format";
-import { Search, Store, MessageCircle, LogIn, CheckCircle2, AlertCircle } from "lucide-react";
+import { Search, Store, MessageCircle, CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function PublicStokClient({ products }: { products: ProductData[] }) {
   const [selectedCategory, setSelectedCategory] = useState("Semua");
@@ -44,14 +44,6 @@ export default function PublicStokClient({ products }: { products: ProductData[]
               <p className="text-xs text-emerald-200">Koperasi Syariah - Informasi Ketersediaan</p>
             </div>
           </div>
-
-          <Link
-            href="/login"
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg transition-colors border border-emerald-600"
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Login Pengurus</span>
-          </Link>
         </div>
       </header>
 
