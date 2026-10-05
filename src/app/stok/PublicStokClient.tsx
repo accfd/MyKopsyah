@@ -4,11 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { ProductData } from "@/lib/data-service";
 import { formatRupiah } from "@/lib/format";
-import { Search, Store, MessageCircle, CheckCircle2, AlertCircle } from "lucide-react";
+import { Search, Store, MessageCircle, CheckCircle2, AlertCircle, FileText, Download, ChevronDown, ChevronUp } from "lucide-react";
 
 export default function PublicStokClient({ products }: { products: ProductData[] }) {
   const [selectedCategory, setSelectedCategory] = useState("Semua");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showPdf, setShowPdf] = useState(false);
 
   const categories = ["Semua", "Seragam", "Buku", "Aksesoris", "Kain"];
 
@@ -46,6 +47,51 @@ export default function PublicStokClient({ products }: { products: ProductData[]
           </div>
         </div>
       </header>
+
+      {/* Edaran Harga */}
+      <div className="bg-emerald-50 border-b border-emerald-200">
+        <div className="max-w-4xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-emerald-700 flex items-center justify-center shrink-0">
+                <FileText className="w-4 h-4 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-emerald-900 leading-tight">Edaran Harga Resmi</p>
+                <p className="text-[10px] text-emerald-700 truncate">No. 001/KOP-SYAH/FKDT-SB/VI/2026</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href="/edaran-kopsyah.pdf"
+                download="Edaran-Harga-Kopsyah-FKDT.pdf"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Unduh</span>
+              </a>
+              <button
+                onClick={() => setShowPdf((v) => !v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-lg transition-colors"
+              >
+                {showPdf ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                <span>{showPdf ? "Tutup" : "Lihat"}</span>
+              </button>
+            </div>
+          </div>
+
+          {showPdf && (
+            <div className="mt-3 rounded-xl overflow-hidden border border-emerald-300 shadow-md">
+              <iframe
+                src="/edaran-kopsyah.pdf"
+                className="w-full"
+                style={{ height: "70vh" }}
+                title="Edaran Harga Resmi Kopsyah FKDT"
+              />
+            </div>
+          )}
+        </div>
+      </div>
 
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
