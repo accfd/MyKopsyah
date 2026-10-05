@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { loginAction } from "@/app/actions";
-import { Store, KeyRound, ArrowRight, ShieldCheck } from "lucide-react";
+import { Store, KeyRound, ArrowRight, ShieldCheck, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(loginAction, null);
+  const [showPin, setShowPin] = useState(false);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-900 to-emerald-800 flex items-center justify-center p-4">
@@ -15,7 +16,7 @@ export default function LoginPage() {
             <Store className="w-9 h-9" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Masuk MyKopsyah</h1>
-          <p className="text-sm text-slate-600 mt-1">Sistem Stok & Penjualan Koperasi Syariah</p>
+          <p className="text-sm text-slate-600 mt-1">Sistem Stok &amp; Penjualan Koperasi Syariah</p>
         </div>
 
         {state?.error && (
@@ -33,22 +34,24 @@ export default function LoginPage() {
               <input
                 id="pin"
                 name="pin"
-                type="password"
+                type={showPin ? "text" : "password"}
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={10}
                 required
-                placeholder="Ketik 6 digit PIN (contoh: 123456)"
-                className="w-full px-4 py-3.5 pl-11 text-lg font-medium tracking-wider bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:bg-white transition-all text-slate-900"
+                placeholder="••••••"
+                className="w-full px-4 py-3.5 pl-11 pr-12 text-lg font-medium tracking-wider bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 focus:bg-white transition-all text-slate-900"
               />
               <KeyRound className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <button
+                type="button"
+                onClick={() => setShowPin((v) => !v)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-700 transition-colors focus:outline-none"
+                aria-label={showPin ? "Sembunyikan PIN" : "Tampilkan PIN"}
+              >
+                {showPin ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
-            <p className="text-xs text-slate-500 mt-2">
-              💡 <span className="font-semibold">Tips:</span> PIN bawaan awal sistem adalah{" "}
-              <code className="bg-slate-100 px-1.5 py-0.5 rounded font-mono font-bold text-emerald-800">
-                123456
-              </code>
-            </p>
           </div>
 
           <button
@@ -69,7 +72,7 @@ export default function LoginPage() {
 
         <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-500">
           <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>Sistem aman & terenkripsi untuk Kopsyah</span>
+          <span>Sistem aman &amp; terenkripsi untuk Kopsyah</span>
         </div>
       </div>
     </div>

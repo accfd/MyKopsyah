@@ -47,18 +47,6 @@ export default function PublicStokClient({ products }: { products: ProductData[]
         </div>
       </header>
 
-      {/* Hero Notice */}
-      <div className="bg-gradient-to-b from-emerald-800 to-emerald-700 text-white px-4 py-6 text-center">
-        <div className="max-w-xl mx-auto space-y-2">
-          <span className="inline-block text-xs font-bold bg-emerald-900/60 text-emerald-200 px-3 py-1 rounded-full border border-emerald-600/50">
-            📡 Stok Diperbarui Secara Real-time
-          </span>
-          <h2 className="text-xl sm:text-2xl font-bold">Cek Ketersediaan Barang Santri & Guru</h2>
-          <p className="text-xs sm:text-sm text-emerald-100">
-            Silakan periksa ketersediaan ukuran seragam, buku, dan perlengkapan lainnya di bawah ini.
-          </p>
-        </div>
-      </div>
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
         {/* Search & Categories */}
