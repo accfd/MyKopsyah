@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { PelangganData } from "@/lib/data-service";
 import {
   createPelangganAction,
@@ -23,6 +24,7 @@ import {
   AlertCircle,
   Loader2,
   MessageCircle,
+  ReceiptText,
 } from "lucide-react";
 
 export default function PelangganClient({
@@ -336,9 +338,13 @@ export default function PelangganClient({
                   </div>
 
                   <div>
-                    <h3 className="font-extrabold text-base text-slate-900 leading-snug">
-                      {p.nama}
-                    </h3>
+                    <Link
+                      href={`/pelanggan/${p.id}`}
+                      className="group font-extrabold text-base text-slate-900 hover:text-emerald-800 transition-colors leading-snug inline-block"
+                      title="Lihat profil dan riwayat transaksi"
+                    >
+                      <span className="group-hover:underline">{p.nama}</span>
+                    </Link>
                   </div>
 
                   <div className="space-y-1.5 text-xs text-slate-600">
@@ -364,21 +370,31 @@ export default function PelangganClient({
 
                 {/* Footer Card */}
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                  {waNumber ? (
-                    <a
-                      href={`https://wa.me/${waNumber}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition-colors"
+                  <div className="flex items-center gap-1.5">
+                    <Link
+                      href={`/pelanggan/${p.id}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 font-bold text-xs transition-colors"
+                      title="Lihat semua riwayat transaksi pemesan ini"
                     >
-                      <MessageCircle className="w-3.5 h-3.5" />
-                      <span>WhatsApp</span>
-                    </a>
-                  ) : (
-                    <span className="text-[11px] text-slate-400">Tidak ada WA</span>
-                  )}
+                      <ReceiptText className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Riwayat</span>
+                    </Link>
 
-                  <span className="text-[11px] text-slate-400">ID #{p.id}</span>
+                    {waNumber && (
+                      <a
+                        href={`https://wa.me/${waNumber}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition-colors"
+                        title="Hubungi via WhatsApp"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">WA</span>
+                      </a>
+                    )}
+                  </div>
+
+                  <span className="text-[11px] text-slate-400 font-mono">ID #{p.id}</span>
                 </div>
               </div>
             );

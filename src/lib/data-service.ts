@@ -1472,6 +1472,11 @@ export async function getPelanggan(): Promise<PelangganData[]> {
 
 export const getCustomers = getPelanggan;
 
+export async function getPelangganById(id: number): Promise<PelangganData | null> {
+  const all = await getPelanggan();
+  return all.find((p) => p.id === id) || null;
+}
+
 export interface CreatePelangganInput {
   nama: string;
   tipePelanggan?: string;
