@@ -7,6 +7,8 @@ import {
   createTransaction,
   CreateTransactionInput,
   updateTransactionStatus,
+  updateTransactionDetails,
+  UpdateTransactionDetailsInput,
   deleteTransaction,
   addStockEntry,
   addBatchStockEntries,
@@ -85,6 +87,23 @@ export async function removeTransactionAction(transactionId: number) {
     revalidatePath("/transaksi");
     revalidatePath("/produk");
     revalidatePath("/stok");
+    revalidatePath("/laporan/wilayah");
+  }
+  return result;
+}
+
+export async function updateTransactionAction(
+  transactionId: number,
+  input: UpdateTransactionDetailsInput
+) {
+  const auth = await isAuthenticated();
+  if (!auth) return { success: false, error: "Unauthorized" };
+
+  const result = await updateTransactionDetails(transactionId, input);
+  if (result.success) {
+    revalidatePath(`/transaksi/${transactionId}`);
+    revalidatePath("/transaksi");
+    revalidatePath("/dashboard");
     revalidatePath("/laporan/wilayah");
   }
   return result;

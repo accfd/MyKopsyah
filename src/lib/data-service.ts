@@ -1134,7 +1134,153 @@ export async function updateTransactionStatus(
   return true;
 }
 
+export interface UpdateTransactionDetailsInput {
+  recipientName?: string;
+  recipientPhone?: string;
+  city?: string;
+  fullAddress?: string;
+  paymentStatus?: "Belum Lunas" | "Lunas";
+  shippingStatus?: "Belum Dikirim" | "Sudah Dikirim";
+  notes?: string;
+}
+
+export async function updateTransactionDetails(
+  transactionId: number,
+  input: UpdateTransactionDetailsInput
+): Promise<{ success: boolean; error?: string }> {
+  if (isDbConfigured) {
+    try {
+      const [neonTx] = await db
+        .select()
+        .from(schema.transaksi)
+        .where(eq(schema.transaksi.id, transactionId))
+        .limit(1);
+
+      if (!neonTx) {
+        return { success: false, error: "Nota transaksi tidak ditemukan di database" };
+      }
+
+      const updates: any = {};
+      if (input.recipientName !== undefined) updates.namaPenerima = input.recipientName;
+      if (input.recipientPhone !== undefined) updates.teleponPenerima = input.recipientPhone;
+      if (input.city !== undefined) updates.kotaTujuan = input.city;
+      if (input.fullAddress !== undefined) updates.alamatTujuan = input.fullAddress || null;
+      if (input.paymentStatus !== undefined) updates.statusPembayaran = input.paymentStatus;
+      if (input.shippingStatus !== undefined) updates.statusPengiriman = input.shippingStatus;
+      if (input.notes !== undefined) updates.catatan = input.notes || null;
+
+      await db
+        .update(schema.transaksi)
+        .set(updates)
+        .where(eq(schema.transaksi.id, transactionId));
+
+      // Sinkronkan juga store lokal jika ada
+      try {
+        const store = readLocalStore();
+        const tx = store.transactions.find((t) => t.id === transactionId);
+        if (tx) {
+          if (input.recipientName !== undefined) {
+            tx.recipientName = input.recipientName;
+            tx.customerNameSnapshot = input.recipientName;
+          }
+          if (input.recipientPhone !== undefined) tx.recipientPhone = input.recipientPhone;
+          if (input.city !== undefined) tx.citySnapshot = input.city;
+          if (input.fullAddress !== undefined) tx.fullAddressSnapshot = input.fullAddress || "";
+          if (input.paymentStatus !== undefined) tx.paymentStatus = input.paymentStatus;
+          if (input.shippingStatus !== undefined) tx.shippingStatus = input.shippingStatus;
+          if (input.notes !== undefined) tx.notes = input.notes || "";
+          writeLocalStore(store);
+        }
+      } catch {}
+
+      return { success: true };
+    } catch (err: any) {
+      console.error("Neon updateTransactionDetails failed:", err);
+      return { success: false, error: err.message || "Gagal memperbarui transaksi di database" };
+    }
+  }
+
+  // Fallback lokal jika database Neon belum terkonfigurasi
+  const store = readLocalStore();
+  const tx = store.transactions.find((t) => t.id === transactionId);
+  if (!tx) {
+    return { success: false, error: "Nota transaksi tidak ditemukan" };
+  }
+  if (input.recipientName !== undefined) {
+    tx.recipientName = input.recipientName;
+    tx.customerNameSnapshot = input.recipientName;
+  }
+  if (input.recipientPhone !== undefined) tx.recipientPhone = input.recipientPhone;
+  if (input.city !== undefined) tx.citySnapshot = input.city;
+  if (input.fullAddress !== undefined) tx.fullAddressSnapshot = input.fullAddress || "";
+  if (input.paymentStatus !== undefined) tx.paymentStatus = input.paymentStatus;
+  if (input.shippingStatus !== undefined) tx.shippingStatus = input.shippingStatus;
+  if (input.notes !== undefined) tx.notes = input.notes || "";
+  writeLocalStore(store);
+  return { success: true };
+}
+
 export async function deleteTransaction(transactionId: number): Promise<{ success: boolean; error?: string }> {
+  // --- JALUR A: Database Neon aktif (prioritas utama di cloud / production) ---
+  if (isDbConfigured) {
+    try {
+      const [neonTx] = await db
+        .select()
+        .from(schema.transaksi)
+        .where(eq(schema.transaksi.id, transactionId))
+        .limit(1);
+
+      if (!neonTx) {
+        return { success: false, error: "Nota transaksi tidak ditemukan di database" };
+      }
+
+      // Cegah penghapusan jika sudah Lunas dan Sudah Dikirim (Terkunci)
+      if (neonTx.statusPembayaran === "Lunas" && neonTx.statusPengiriman === "Sudah Dikirim") {
+        return {
+          success: false,
+          error: "Nota transaksi telah Lunas dan Selesai Dikirim sehingga berstatus arsip resmi dan tidak dapat dihapus demi integritas pembukuan.",
+        };
+      }
+
+      // Ambil items untuk rollback stok varian ke gudang
+      const items = await db
+        .select()
+        .from(schema.itemTransaksi)
+        .where(eq(schema.itemTransaksi.transaksiId, transactionId));
+
+      for (const item of items) {
+        if (item.varianId) {
+          await db
+            .update(schema.varianProduk)
+            .set({
+              jumlahStok: sql`${schema.varianProduk.jumlahStok} + ${item.jumlah}`,
+            })
+            .where(eq(schema.varianProduk.id, item.varianId));
+        }
+      }
+
+      // Hapus itemTransaksi dan transaksi dari Neon
+      await db.delete(schema.itemTransaksi).where(eq(schema.itemTransaksi.transaksiId, transactionId));
+      await db.delete(schema.transaksi).where(eq(schema.transaksi.id, transactionId));
+
+      // Hapus juga dari store lokal jika ada
+      try {
+        const store = readLocalStore();
+        const txIndex = store.transactions.findIndex((t) => t.id === transactionId);
+        if (txIndex !== -1) {
+          store.transactions.splice(txIndex, 1);
+          writeLocalStore(store);
+        }
+      } catch {}
+
+      return { success: true };
+    } catch (err: any) {
+      console.error("Neon deleteTransaction failed:", err);
+      return { success: false, error: err.message || "Gagal menghapus nota dari database" };
+    }
+  }
+
+  // --- JALUR B: Fallback JSON lokal ---
   const store = readLocalStore();
   const txIndex = store.transactions.findIndex((t) => t.id === transactionId);
   if (txIndex === -1) {
@@ -1164,22 +1310,6 @@ export async function deleteTransaction(transactionId: number): Promise<{ succes
 
   store.transactions.splice(txIndex, 1);
   writeLocalStore(store);
-
-  if (isDbConfigured) {
-    try {
-      for (const item of tx.items) {
-        await db
-          .update(schema.varianProduk)
-          .set({
-            jumlahStok: sql`${schema.varianProduk.jumlahStok} + ${item.quantity}`,
-          })
-          .where(eq(schema.varianProduk.id, item.variantId));
-      }
-      await db.delete(schema.transaksi).where(eq(schema.transaksi.id, transactionId));
-    } catch (e: any) {
-      console.warn("Neon delete transaction rollback failed:", e);
-    }
-  }
 
   return { success: true };
 }

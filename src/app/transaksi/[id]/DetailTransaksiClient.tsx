@@ -6,6 +6,7 @@ import { TransactionData } from "@/lib/data-service";
 import { formatRupiah, formatTanggal, generateWhatsAppReceipt } from "@/lib/format";
 import {
   removeTransactionAction,
+  updateTransactionAction,
 } from "@/app/actions";
 import {
   Printer,
@@ -16,9 +17,12 @@ import {
   AlertTriangle,
   Loader2,
   Lock,
+  Pencil,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import ReportHeader from "@/components/ReportHeader";
+import CityCombobox from "@/components/CityCombobox";
 
 function terbilangRupiah(n: number): string {
   if (n === 0) return "Nol Rupiah";
@@ -67,6 +71,45 @@ export default function DetailTransaksiClient({ tx }: { tx: TransactionData }) {
   const [isPending, startTransition] = useTransition();
   const [copiedWA, setCopiedWA] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editRecipientName, setEditRecipientName] = useState(tx.recipientName || tx.customerNameSnapshot);
+  const [editRecipientPhone, setEditRecipientPhone] = useState(tx.recipientPhone || "");
+  const [editCity, setEditCity] = useState(tx.citySnapshot || "");
+  const [editFullAddress, setEditFullAddress] = useState(tx.fullAddressSnapshot || "");
+  const [editPaymentStatus, setEditPaymentStatus] = useState<"Belum Lunas" | "Lunas">(tx.paymentStatus);
+  const [editShippingStatus, setEditShippingStatus] = useState<"Belum Dikirim" | "Sudah Dikirim">(tx.shippingStatus);
+  const [editNotes, setEditNotes] = useState(tx.notes || "");
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editRecipientName.trim()) {
+      alert("Nama penerima tidak boleh kosong");
+      return;
+    }
+    if (!editCity.trim()) {
+      alert("Kabupaten/Kota tujuan tidak boleh kosong");
+      return;
+    }
+
+    startTransition(async () => {
+      const res = await updateTransactionAction(tx.id, {
+        recipientName: editRecipientName.trim(),
+        recipientPhone: editRecipientPhone.trim(),
+        city: editCity.trim(),
+        fullAddress: editFullAddress.trim(),
+        paymentStatus: editPaymentStatus,
+        shippingStatus: editShippingStatus,
+        notes: editNotes.trim(),
+      });
+      if (res.success) {
+        setShowEditModal(false);
+        router.refresh();
+      } else {
+        alert(res.error || "Gagal memperbarui nota transaksi");
+      }
+    });
+  };
 
   const handleCopyWA = () => {
     const text = generateWhatsAppReceipt(tx);
@@ -128,6 +171,17 @@ export default function DetailTransaksiClient({ tx }: { tx: TransactionData }) {
           >
             <Printer className="w-4 h-4" />
             <span className="hidden sm:inline">Cetak Nota</span>
+          </button>
+
+          {/* Tombol Edit Nota */}
+          <button
+            type="button"
+            onClick={() => setShowEditModal(true)}
+            className="flex items-center gap-1.5 p-2 sm:px-3.5 sm:py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
+            title="Edit Data Pemesan & Status Nota"
+          >
+            <Pencil className="w-4 h-4" />
+            <span className="hidden sm:inline">Edit Nota</span>
           </button>
 
           {/* Tombol Hapus / Kunci */}
@@ -385,6 +439,156 @@ export default function DetailTransaksiClient({ tx }: { tx: TransactionData }) {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ─── MODAL EDIT RINCIAN NOTA ─── */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs no-print overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-200 my-8">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-700">
+                  <Pencil className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900">
+                    Edit Rincian Nota
+                  </h3>
+                  <p className="text-xs text-slate-500 font-mono">
+                    {tx.invoiceNumber}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Nama Penerima / Pemesan <span className="text-rose-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editRecipientName}
+                  onChange={(e) => setEditRecipientName(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs sm:text-sm font-semibold"
+                  placeholder="Nama pemesan atau instansi..."
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Nomor WhatsApp / HP
+                </label>
+                <input
+                  type="text"
+                  value={editRecipientPhone}
+                  onChange={(e) => setEditRecipientPhone(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs sm:text-sm font-semibold font-mono"
+                  placeholder="08123456789..."
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Kabupaten / Kota Tujuan <span className="text-rose-600">*</span>
+                </label>
+                <CityCombobox
+                  value={editCity}
+                  onChange={(c) => setEditCity(c)}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Alamat Lengkap Pengiriman
+                </label>
+                <textarea
+                  rows={2}
+                  value={editFullAddress}
+                  onChange={(e) => setEditFullAddress(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs font-medium"
+                  placeholder="Jalan, No, Kelurahan, Kecamatan..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Status Pembayaran
+                  </label>
+                  <select
+                    value={editPaymentStatus}
+                    onChange={(e) => setEditPaymentStatus(e.target.value as any)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs font-bold"
+                  >
+                    <option value="Belum Lunas">Belum Lunas</option>
+                    <option value="Lunas">Lunas</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Status Pengiriman
+                  </label>
+                  <select
+                    value={editShippingStatus}
+                    onChange={(e) => setEditShippingStatus(e.target.value as any)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs font-bold"
+                  >
+                    <option value="Belum Dikirim">Belum Dikirim</option>
+                    <option value="Sudah Dikirim">Sudah Dikirim</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Catatan Transaksi
+                </label>
+                <input
+                  type="text"
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs font-medium"
+                  placeholder="Catatan tambahan nota..."
+                />
+              </div>
+
+              <div className="flex items-center gap-2.5 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  disabled={isPending}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-xs sm:text-sm hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs sm:text-sm shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <span>Simpan Perubahan</span>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
