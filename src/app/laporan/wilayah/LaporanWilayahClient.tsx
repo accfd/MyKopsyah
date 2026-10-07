@@ -16,6 +16,7 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
+  X,
 } from "lucide-react";
 import ReportHeader from "@/components/ReportHeader";
 import ReportFooter from "@/components/ReportFooter";
@@ -70,46 +71,72 @@ export default function LaporanWilayahClient({
   transactions: TransactionData[];
   products: ProductData[];
 }) {
+  const currentYear = new Date().getFullYear();
+
+  // Tahun yang tersedia otomatis mendeteksi transaksi di database + tahun berjalan (2026, 2027, dst)
+  const availableYears = useMemo(() => {
+    const yearSet = new Set<number>();
+    yearSet.add(currentYear);
+    for (const tx of transactions) {
+      if (tx.createdAt) {
+        const d = new Date(tx.createdAt);
+        if (!isNaN(d.getTime())) {
+          yearSet.add(d.getFullYear());
+        }
+      }
+    }
+    return Array.from(yearSet).sort((a, b) => b - a);
+  }, [transactions, currentYear]);
+
+  // Default tahun: tahun dari transaksi terbaru atau tahun berjalan saat ini
+  const [selectedYear, setSelectedYear] = useState<string>(() => {
+    if (transactions.length > 0) {
+      const dates = transactions
+        .map((t) => new Date(t.createdAt).getTime())
+        .filter((t) => !isNaN(t));
+      if (dates.length > 0) {
+        return new Date(Math.max(...dates)).getFullYear().toString();
+      }
+    }
+    return currentYear.toString();
+  });
+
   const [selectedCategory, setSelectedCategory] = useState<string>("Buku");
-  const [selectedMonth, setSelectedMonth] = useState<string>("SEMUA");
+  const [selectedMonth, setSelectedMonth] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [showPrintPreview, setShowPrintPreview] = useState<boolean>(false);
 
   const categories = ["Buku", "Seragam", "Lainnya", "Semua"];
 
-  const monthNames = [
-    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+  // 13 Opsi Bulan (Semua Bulan + 12 Bulan Lengkap)
+  const months = [
+    { value: "ALL", label: "Semua Bulan (Tahun Penuh)" },
+    { value: "1", label: "Januari" },
+    { value: "2", label: "Februari" },
+    { value: "3", label: "Maret" },
+    { value: "4", label: "April" },
+    { value: "5", label: "Mei" },
+    { value: "6", label: "Juni" },
+    { value: "7", label: "Juli" },
+    { value: "8", label: "Agustus" },
+    { value: "9", label: "September" },
+    { value: "10", label: "Oktober" },
+    { value: "11", label: "November" },
+    { value: "12", label: "Desember" },
   ];
-
-  // Daftar bulan yang tersedia dari data transaksi
-  const availableMonths = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const tx of transactions) {
-      if (tx.createdAt) {
-        const d = new Date(tx.createdAt);
-        if (!isNaN(d.getTime())) {
-          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-          const label = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
-          map.set(key, label);
-        }
-      }
-    }
-    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
-  }, [transactions]);
 
   const romanMonths = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
-  // Label periode yang elegan & formal
+  // Label periode yang elegan, formal, dan dinamis
   const periodeLabel = useMemo(() => {
-    if (selectedMonth === "SEMUA") {
-      return "Periode: Tahun Buku 2026";
+    if (selectedMonth === "ALL") {
+      return `Periode: Tahun Buku ${selectedYear}`;
     }
-    const found = availableMonths.find(([k]) => k === selectedMonth);
-    return found ? `Periode: Bulan ${found[1]}` : `Periode: ${selectedMonth}`;
-  }, [selectedMonth, availableMonths]);
+    const found = months.find((m) => m.value === selectedMonth);
+    return found ? `Periode: Bulan ${found.label} ${selectedYear}` : `Periode: Tahun ${selectedYear}`;
+  }, [selectedMonth, selectedYear, months]);
 
-  // Nomor dokumen resmi sesuai kategori & periode
+  // Nomor dokumen resmi sesuai kategori, bulan, & tahun otomatis
   const documentNumber = useMemo(() => {
     const code =
       selectedCategory === "Buku"
@@ -120,16 +147,15 @@ export default function LaporanWilayahClient({
         ? "LAP-LAIN"
         : "LAP-WIL";
 
-    if (selectedMonth === "SEMUA") {
-      return `No. Dokumen: 026/${code}/KOPSYAH-FKDT/2026`;
+    if (selectedMonth === "ALL") {
+      const yrShort = selectedYear.slice(-2);
+      return `No. Dokumen: 0${yrShort}/${code}/KOPSYAH-FKDT/${selectedYear}`;
     }
-    const parts = selectedMonth.split("-");
-    const year = parts[0] || "2026";
-    const monthNum = parseInt(parts[1], 10);
+    const monthNum = parseInt(selectedMonth, 10);
     const roman = romanMonths[monthNum - 1] || "IX";
     const paddedMonth = String(monthNum).padStart(3, "0");
-    return `No. Dokumen: ${paddedMonth}/${code}/KOPSYAH-FKDT/${roman}/${year}`;
-  }, [selectedCategory, selectedMonth]);
+    return `No. Dokumen: ${paddedMonth}/${code}/KOPSYAH-FKDT/${roman}/${selectedYear}`;
+  }, [selectedCategory, selectedMonth, selectedYear]);
 
   // Map product id to category
   const productCategoryMap = useMemo(() => {
@@ -140,14 +166,24 @@ export default function LaporanWilayahClient({
     return map;
   }, [products]);
 
-  // Filter transaksi berdasarkan Kategori & Bulan
+  // Filter transaksi berdasarkan Tahun, Bulan, & Kategori
   const filteredTransactions = useMemo(() => {
     return transactions.filter((tx) => {
+      if (!tx.createdAt) return false;
+      const d = new Date(tx.createdAt);
+      if (isNaN(d.getTime())) return false;
+
+      // Filter Tahun
+      if (d.getFullYear().toString() !== selectedYear) {
+        return false;
+      }
+
       // Filter Bulan
-      if (selectedMonth !== "SEMUA") {
-        const d = new Date(tx.createdAt);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        if (key !== selectedMonth) return false;
+      if (selectedMonth !== "ALL") {
+        const monthNum = (d.getMonth() + 1).toString();
+        if (monthNum !== selectedMonth) {
+          return false;
+        }
       }
 
       // Filter Kategori
@@ -173,7 +209,7 @@ export default function LaporanWilayahClient({
 
       return hasMatchingCategory;
     });
-  }, [transactions, selectedCategory, selectedMonth, productCategoryMap]);
+  }, [transactions, selectedYear, selectedMonth, selectedCategory, productCategoryMap]);
 
   // ─── 1. FORMAT KHUSUS BUKU / MODUL (KELAS I - IV) ───
   const modulRows: DetailModulRow[] = useMemo(() => {
@@ -371,38 +407,40 @@ export default function LaporanWilayahClient({
     <div className="space-y-6">
       {/* ─── WEB INTERFACE ONLY (HIDDEN ON PRINT) ─── */}
       <div className="print:hidden space-y-6">
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* Page Header: Rapi 1 Baris Sejajar di HP & PC */}
+        <div className="flex items-center justify-between gap-2.5">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
+            <h2 className="text-xl sm:text-3xl font-bold text-slate-900">
               Rekap Wilayah
             </h2>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
             <button
               type="button"
-              onClick={() => setShowPrintPreview((v) => !v)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-xl shadow-sm transition-all"
+              onClick={() => setShowPrintPreview(true)}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
+              title="Pratinjau Lembar Cetak Kop Surat Resmi"
             >
-              <Eye className="w-4 h-4 text-emerald-700" />
-              <span>{showPrintPreview ? "Tutup Pratinjau Kop" : "Pratinjau Kop Surat"}</span>
+              <Eye className="w-4 h-4 text-emerald-700 shrink-0" />
+              <span>Pratinjau Kop</span>
             </button>
 
             <button
               type="button"
               onClick={handlePrint}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold rounded-xl shadow-md transition-all active:scale-98"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:px-5 sm:py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
+              title="Cetak Laporan Resmi Kopsyah"
             >
-              <Printer className="w-4 h-4" />
-              <span>Cetak Laporan Resmi</span>
+              <Printer className="w-4 h-4 shrink-0" />
+              <span>Cetak Resmi</span>
             </button>
           </div>
         </div>
 
         {/* Toolbar Filter: PC (1 Baris Sejajar) vs HP (3 Baris Bersih Proporsional) */}
         <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-2.5">
-          {/* Kelompok Kiri di PC (Kategori & Periode Bulan Berdampingan) */}
+          {/* Kelompok Kiri di PC (Kategori & Periode Bulan/Tahun Berdampingan) */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
             {/* Baris 1 di HP: 4 Tab Kategori Grid Penuh (Buku, Seragam, Lainnya, Semua) */}
             <div className="w-full sm:w-auto">
@@ -424,18 +462,29 @@ export default function LaporanWilayahClient({
               </div>
             </div>
 
-            {/* Baris 2 di HP: Filter Periode Bulan & Tahun (Full Width di HP dengan Ikon Kalender) */}
-            <div className="w-full sm:w-auto flex items-center gap-2 bg-slate-100 px-3.5 py-2 rounded-xl border border-slate-200">
+            {/* Baris 2 di HP: Filter Periode Bulan (13 Opsi) & Tahun Dinamis Otomatis */}
+            <div className="w-full sm:w-auto flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
               <Calendar className="w-4 h-4 text-emerald-700 shrink-0" />
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer w-full sm:w-auto pr-1"
+                className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer flex-1 sm:w-auto pr-1"
               >
-                <option value="SEMUA">Semua Bulan (Tahun Buku)</option>
-                {availableMonths.map(([key, label]) => (
-                  <option key={key} value={key}>
-                    {label}
+                {months.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <span className="text-slate-300 select-none">|</span>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="bg-transparent text-xs font-bold text-emerald-900 focus:outline-none cursor-pointer pr-1"
+              >
+                {availableYears.map((yr) => (
+                  <option key={yr} value={yr.toString()}>
+                    {yr}
                   </option>
                 ))}
               </select>
@@ -766,80 +815,353 @@ export default function LaporanWilayahClient({
         )}
       </div>
 
-      {/* ─── OFFICIAL PRINTABLE LETTERHEAD REPORT (KOP SURAT RESMI CETAK) ─── */}
-      <div
-        className={`${
-          showPrintPreview ? "block" : "hidden"
-        } print:block bg-white text-black p-4 sm:p-8 border border-slate-300 print:border-0 rounded-2xl shadow-xl print:shadow-none print:p-0`}
-      >
-        {/* Kop Surat & Judul Dokumen Cetak Terpadu */}
+      {/* ─── MODAL POPUP PRATINJAU KOP SURAT & LEMBAR CETAK RESMI ─── */}
+      {showPrintPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 bg-slate-50 border-b border-slate-200 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                  <Eye className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                    Pratinjau Lembar Cetak Resmi
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-mono">
+                    {documentNumber} • {periodeLabel}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Cetak</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPrintPreview(false)}
+                  className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors cursor-pointer"
+                  title="Tutup Pratinjau"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body: Kertas Pratinjau A4 Scrollable */}
+            <div className="flex-1 overflow-y-auto p-3 sm:p-8 bg-slate-100/70">
+              <div className="bg-white text-black p-4 sm:p-8 rounded-xl shadow-md border border-slate-200 max-w-3xl mx-auto text-xs">
+                {/* Kop Surat & Judul Dokumen Cetak */}
+                <ReportHeader
+                  title={getDocumentTitle()}
+                  documentNumber={documentNumber}
+                  period={periodeLabel}
+                />
+
+                {/* Tabel Pratinjau Sesuai Kategori */}
+                {selectedCategory === "Buku" ? (
+                  <div className="overflow-x-auto mb-6">
+                    <table className="w-full text-[10px] text-center border-collapse border border-black">
+                      <thead>
+                        <tr className="bg-yellow-200 text-black font-extrabold uppercase border-b border-black">
+                          <th rowSpan={2} className="py-1 px-1 border border-black w-8">NO</th>
+                          <th rowSpan={2} className="py-1 px-1 border border-black w-16">Tanggal</th>
+                          <th rowSpan={2} className="py-1 px-2 border border-black text-left">Nama Pemesan</th>
+                          <th rowSpan={2} className="py-1 px-2 border border-black text-left">Kabupaten/Kota</th>
+                          <th colSpan={4} className="py-1 px-1 border border-black">KELAS</th>
+                          <th rowSpan={2} className="py-1 px-1 border border-black w-10">JMLH</th>
+                          <th rowSpan={2} className="py-1 px-1 border border-black w-12">KET</th>
+                          <th colSpan={2} className="py-1 px-1 border border-black">KONTRIBUSI</th>
+                        </tr>
+                        <tr className="bg-yellow-200 text-black font-extrabold uppercase border-b border-black">
+                          <th className="py-0.5 px-1 border border-black w-8">I</th>
+                          <th className="py-0.5 px-1 border border-black w-8">II</th>
+                          <th className="py-0.5 px-1 border border-black w-8">III</th>
+                          <th className="py-0.5 px-1 border border-black w-8">IV</th>
+                          <th className="py-0.5 px-1 border border-black w-20">KOPERASI</th>
+                          <th className="py-0.5 px-1 border border-black w-16">DPW</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {searchedModulRows.map((r, i) => (
+                          <tr key={r.id} className="border-b border-black/30">
+                            <td className="py-1 px-1 border border-black/40 font-bold">{i + 1}</td>
+                            <td className="py-1 px-1 border border-black/40">{formatTanggalSingkat(r.date)}</td>
+                            <td className="py-1 px-2 border border-black/40 text-left font-bold">{r.name}</td>
+                            <td className="py-1 px-2 border border-black/40 text-left font-semibold">{r.city}</td>
+                            <td className="py-1 px-1 border border-black/40">{r.k1 || 0}</td>
+                            <td className="py-1 px-1 border border-black/40">{r.k2 || 0}</td>
+                            <td className="py-1 px-1 border border-black/40">{r.k3 || 0}</td>
+                            <td className="py-1 px-1 border border-black/40">{r.k4 || 0}</td>
+                            <td className="py-1 px-1 border border-black/40 font-black">{r.jmlh}</td>
+                            <td className="py-1 px-1 border border-black/40 font-bold">{r.ket || "-"}</td>
+                            <td className="py-1 px-1 border border-black/40 text-right">
+                              {r.kontribusiKoperasi > 0 ? r.kontribusiKoperasi.toLocaleString("id-ID") : "-"}
+                            </td>
+                            <td className="py-1 px-1 border border-black/40 text-right">
+                              {r.kontribusiDpw > 0 ? r.kontribusiDpw.toLocaleString("id-ID") : "-"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tbody className="border-t-2 border-black text-black font-semibold">
+                        <tr className="bg-yellow-200 font-black border-b border-black">
+                          <td colSpan={4} className="py-1.5 px-2 text-right uppercase border border-black">Jumlah</td>
+                          <td className="py-1.5 px-1 border border-black">{totalModul.k1}</td>
+                          <td className="py-1.5 px-1 border border-black">{totalModul.k2}</td>
+                          <td className="py-1.5 px-1 border border-black">{totalModul.k3}</td>
+                          <td className="py-1.5 px-1 border border-black">{totalModul.k4}</td>
+                          <td className="py-1.5 px-1 border border-black font-black">{totalModul.jmlh}</td>
+                          <td className="py-1.5 px-1 border border-black"></td>
+                          <td className="py-1.5 px-1 text-right border border-black font-black">{totalModul.koperasi.toLocaleString("id-ID")}</td>
+                          <td className="py-1.5 px-1 text-right border border-black font-black">{totalModul.dpw.toLocaleString("id-ID")}</td>
+                        </tr>
+                        <tr className="border-b border-black">
+                          <td colSpan={4} className="py-1 px-2 text-right font-bold uppercase border border-black">Jumlah Modul yang dicetak</td>
+                          <td className="py-1 px-1 border border-black font-bold">1000</td>
+                          <td className="py-1 px-1 border border-black font-bold">1000</td>
+                          <td className="py-1 px-1 border border-black font-bold">1000</td>
+                          <td className="py-1 px-1 border border-black font-bold">1000</td>
+                          <td className="py-1 px-1 border border-black font-black">4000</td>
+                          <td colSpan={3} className="py-1 px-1 border border-black"></td>
+                        </tr>
+                        <tr className="border-b border-black">
+                          <td colSpan={4} className="py-1 px-2 text-right font-bold uppercase border border-black">Sisa Modul</td>
+                          <td className="py-1 px-1 border border-black font-bold">{1000 - totalModul.k1}</td>
+                          <td className="py-1 px-1 border border-black font-bold">{1000 - totalModul.k2}</td>
+                          <td className="py-1 px-1 border border-black font-bold">{1000 - totalModul.k3}</td>
+                          <td className="py-1 px-1 border border-black font-bold">{1000 - totalModul.k4}</td>
+                          <td className="py-1 px-1 border border-black font-black">{4000 - totalModul.jmlh}</td>
+                          <td colSpan={3} className="py-1 px-1 border border-black"></td>
+                        </tr>
+                        <tr className="font-black border border-black">
+                          <td colSpan={4} className="py-1.5 px-2 text-right uppercase border border-black">Modal yang belum kembali</td>
+                          <td colSpan={8} className="py-1.5 px-2 border border-black font-black text-left">
+                            Rp {((4000 - totalModul.jmlh) * 24000).toLocaleString("id-ID")}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto mb-6">
+                    <table className="w-full text-[10px] text-left border-collapse border border-black">
+                      <thead>
+                        <tr className="bg-slate-200 text-black font-extrabold uppercase border-b border-black">
+                          <th className="py-1.5 px-1 text-center border border-black w-8">NO</th>
+                          <th className="py-1.5 px-1 text-center border border-black w-16">Tanggal</th>
+                          <th className="py-1.5 px-2 border border-black">Nama Pemesan</th>
+                          <th className="py-1.5 px-2 border border-black">Kabupaten/Kota</th>
+                          <th className="py-1.5 px-2 border border-black">Rincian Barang & Ukuran</th>
+                          <th className="py-1.5 px-1 text-center border border-black w-14">Jmlh</th>
+                          <th className="py-1.5 px-2 text-right border border-black w-24">Total Nilai</th>
+                          <th className="py-1.5 px-1 text-center border border-black w-16">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {searchedGenericRows.map((r, i) => (
+                          <tr key={r.id} className="border-b border-black/30">
+                            <td className="py-1 px-1 text-center border border-black/40 font-bold">{i + 1}</td>
+                            <td className="py-1 px-1 text-center border border-black/40">{formatTanggalSingkat(r.date)}</td>
+                            <td className="py-1 px-2 border border-black/40 font-bold">{r.name}</td>
+                            <td className="py-1 px-2 border border-black/40 font-semibold">{r.city}</td>
+                            <td className="py-1 px-2 border border-black/40">{r.itemDetails}</td>
+                            <td className="py-1 px-1 text-center border border-black/40 font-bold">
+                              {r.totalQty} {selectedCategory === "Seragam" ? "Stel" : "Pcs"}
+                            </td>
+                            <td className="py-1 px-2 text-right border border-black/40 font-extrabold">
+                              {formatRupiah(r.totalAmount)}
+                            </td>
+                            <td className="py-1 px-1 text-center border border-black/40 font-semibold">
+                              {r.paymentStatus}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tbody className="border-t-2 border-black font-extrabold bg-slate-100">
+                        <tr>
+                          <td colSpan={5} className="py-2 px-2 text-right uppercase border border-black">
+                            TOTAL KESELURUHAN
+                          </td>
+                          <td className="py-2 px-1 text-center border border-black font-black">
+                            {totalGeneric.totalQty} {selectedCategory === "Seragam" ? "Stel" : "Pcs"}
+                          </td>
+                          <td className="py-2 px-2 text-right border border-black font-black">
+                            {formatRupiah(totalGeneric.totalAmount)}
+                          </td>
+                          <td className="py-2 px-1 text-center border border-black text-[9px]">
+                            Lunas: {formatRupiah(totalGeneric.lunas)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <ReportFooter />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── DEDICATED OFFICIAL PRINTABLE REPORT (MODEL A: MULTI-HALAMAN STANDAR PROFESIONAL) ─── */}
+      <div className="hidden print:block text-black bg-white w-full">
+        {/* Kop Surat Resmi Lengkap (Muncul di Halaman 1 di atas Tabel) */}
         <ReportHeader
           title={getDocumentTitle()}
           documentNumber={documentNumber}
           period={periodeLabel}
+          className="mb-3"
         />
 
-        {/* ─── TABEL CETAK SESUAI KATEGORI ─── */}
+        {/* ─── TABEL CETAK MULTI-HALAMAN MODEL A ─── */}
         {selectedCategory === "Buku" ? (
-          /* TABEL CETAK MODUL BUKU */
-          <div className="overflow-x-auto mb-6">
-            <table className="w-full text-[10px] text-center border-collapse border border-black">
-              <thead>
-                <tr className="bg-yellow-200 print:bg-yellow-200 text-black font-extrabold uppercase border-b border-black">
-                  <th rowSpan={2} className="py-1 px-1 border border-black w-8">NO</th>
-                  <th rowSpan={2} className="py-1 px-1 border border-black w-16">Tanggal</th>
-                  <th rowSpan={2} className="py-1 px-2 border border-black text-left">Nama Pemesan</th>
-                  <th rowSpan={2} className="py-1 px-2 border border-black text-left">Kabupaten/Kota</th>
-                  <th colSpan={4} className="py-1 px-1 border border-black">KELAS</th>
-                  <th rowSpan={2} className="py-1 px-1 border border-black w-10">JMLH</th>
-                  <th rowSpan={2} className="py-1 px-1 border border-black w-12">KET</th>
-                  <th colSpan={2} className="py-1 px-1 border border-black">KONTRIBUSI</th>
-                </tr>
-                <tr className="bg-yellow-200 print:bg-yellow-200 text-black font-extrabold uppercase border-b border-black">
-                  <th className="py-0.5 px-1 border border-black w-8">I</th>
-                  <th className="py-0.5 px-1 border border-black w-8">II</th>
-                  <th className="py-0.5 px-1 border border-black w-8">III</th>
-                  <th className="py-0.5 px-1 border border-black w-8">IV</th>
-                  <th className="py-0.5 px-1 border border-black w-20">KOPERASI</th>
-                  <th className="py-0.5 px-1 border border-black w-16">DPW</th>
-                </tr>
-              </thead>
+          /* TABEL MODUL BUKU DENGAN RUNNING HEADER & RUNNING FOOTER */
+          <table className="w-full text-[9.5px] text-center border-collapse border border-black">
+            <thead>
+              {/* Running Header Tipis 1 Baris di Atas Setiap Halaman */}
+              <tr className="border-b border-black">
+                <th colSpan={12} className="py-1 px-1 text-left text-[8.5px] font-semibold text-black uppercase tracking-wider">
+                  KOPSYAH FKDT SUMBAR • {getDocumentTitle()} • {periodeLabel}
+                </th>
+              </tr>
+              {/* Judul Kolom Tabel Resmi */}
+              <tr className="bg-yellow-200 text-black font-extrabold uppercase border-b border-black">
+                <th rowSpan={2} className="py-1 px-1 border border-black w-8">NO</th>
+                <th rowSpan={2} className="py-1 px-1 border border-black w-16">Tanggal</th>
+                <th rowSpan={2} className="py-1 px-2 border border-black text-left">Nama Pemesan</th>
+                <th rowSpan={2} className="py-1 px-2 border border-black text-left">Kabupaten/Kota</th>
+                <th colSpan={4} className="py-1 px-1 border border-black">KELAS</th>
+                <th rowSpan={2} className="py-1 px-1 border border-black w-10">JMLH</th>
+                <th rowSpan={2} className="py-1 px-1 border border-black w-12">KET</th>
+                <th colSpan={2} className="py-1 px-1 border border-black">KONTRIBUSI</th>
+              </tr>
+              <tr className="bg-yellow-200 text-black font-extrabold uppercase border-b border-black">
+                <th className="py-0.5 px-1 border border-black w-8">I</th>
+                <th className="py-0.5 px-1 border border-black w-8">II</th>
+                <th className="py-0.5 px-1 border border-black w-8">III</th>
+                <th className="py-0.5 px-1 border border-black w-8">IV</th>
+                <th className="py-0.5 px-1 border border-black w-20">KOPERASI</th>
+                <th className="py-0.5 px-1 border border-black w-16">DPW</th>
+              </tr>
+            </thead>
 
+            <tbody>
+              {searchedModulRows.map((r, i) => (
+                <tr key={r.id} className="border-b border-black/30">
+                  <td className="py-1 px-1 border border-black/40 font-bold">{i + 1}</td>
+                  <td className="py-1 px-1 border border-black/40">{formatTanggalSingkat(r.date)}</td>
+                  <td className="py-1 px-2 border border-black/40 text-left font-bold">{r.name}</td>
+                  <td className="py-1 px-2 border border-black/40 text-left font-semibold">{r.city}</td>
+                  <td className="py-1 px-1 border border-black/40">{r.k1 || 0}</td>
+                  <td className="py-1 px-1 border border-black/40">{r.k2 || 0}</td>
+                  <td className="py-1 px-1 border border-black/40">{r.k3 || 0}</td>
+                  <td className="py-1 px-1 border border-black/40">{r.k4 || 0}</td>
+                  <td className="py-1 px-1 border border-black/40 font-black">{r.jmlh}</td>
+                  <td className="py-1 px-1 border border-black/40 font-bold">{r.ket || "-"}</td>
+                  <td className="py-1 px-1 border border-black/40 text-right">
+                    {r.kontribusiKoperasi > 0 ? r.kontribusiKoperasi.toLocaleString("id-ID") : "-"}
+                  </td>
+                  <td className="py-1 px-1 border border-black/40 text-right">
+                    {r.kontribusiDpw > 0 ? r.kontribusiDpw.toLocaleString("id-ID") : "-"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+
+            {/* Running Footer Berulang di Bawah Setiap Halaman Cetak */}
+            <tfoot className="print-running-footer">
+              <tr>
+                <td colSpan={12} className="pt-2 text-[8px] text-black border-t border-black/40">
+                  <div className="flex justify-between items-center font-medium">
+                    <span>Dicetak melalui Sistem MyKopsyah • Dokumen Resmi Logistik & Keuangan</span>
+                    <span>Koperasi Syariah FKDT Prov. Sumatera Barat</span>
+                  </div>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        ) : (
+          /* TABEL SERAGAM, LAINNYA, ATAU SEMUA */
+          <table className="w-full text-[9.5px] text-left border-collapse border border-black">
+            <thead>
+              {/* Running Header Tipis 1 Baris di Atas Setiap Halaman */}
+              <tr className="border-b border-black">
+                <th colSpan={8} className="py-1 px-1 text-left text-[8.5px] font-semibold text-black uppercase tracking-wider">
+                  KOPSYAH FKDT SUMBAR • {getDocumentTitle()} • {periodeLabel}
+                </th>
+              </tr>
+              {/* Judul Kolom Tabel Resmi */}
+              <tr className="bg-slate-200 text-black font-extrabold uppercase border-b border-black">
+                <th className="py-1 px-1 text-center border border-black w-8">NO</th>
+                <th className="py-1 px-1 text-center border border-black w-16">Tanggal</th>
+                <th className="py-1 px-2 border border-black">Nama Pemesan</th>
+                <th className="py-1 px-2 border border-black">Kabupaten/Kota</th>
+                <th className="py-1 px-2 border border-black">Rincian Barang & Ukuran</th>
+                <th className="py-1 px-1 text-center border border-black w-14">Jmlh</th>
+                <th className="py-1 px-2 text-right border border-black w-24">Total Nilai</th>
+                <th className="py-1 px-1 text-center border border-black w-16">Status</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {searchedGenericRows.map((r, i) => (
+                <tr key={r.id} className="border-b border-black/30">
+                  <td className="py-1 px-1 text-center border border-black/40 font-bold">{i + 1}</td>
+                  <td className="py-1 px-1 text-center border border-black/40">{formatTanggalSingkat(r.date)}</td>
+                  <td className="py-1 px-2 border border-black/40 font-bold">{r.name}</td>
+                  <td className="py-1 px-2 border border-black/40 font-semibold">{r.city}</td>
+                  <td className="py-1 px-2 border border-black/40">{r.itemDetails}</td>
+                  <td className="py-1 px-1 text-center border border-black/40 font-bold">
+                    {r.totalQty} {selectedCategory === "Seragam" ? "Stel" : "Pcs"}
+                  </td>
+                  <td className="py-1 px-2 text-right border border-black/40 font-extrabold">
+                    {formatRupiah(r.totalAmount)}
+                  </td>
+                  <td className="py-1 px-1 text-center border border-black/40 font-semibold">
+                    {r.paymentStatus}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+
+            {/* Running Footer Berulang di Bawah Setiap Halaman Cetak */}
+            <tfoot className="print-running-footer">
+              <tr>
+                <td colSpan={8} className="pt-2 text-[8px] text-black border-t border-black/40">
+                  <div className="flex justify-between items-center font-medium">
+                    <span>Dicetak melalui Sistem MyKopsyah • Dokumen Resmi Logistik & Keuangan</span>
+                    <span>Koperasi Syariah FKDT Prov. Sumatera Barat</span>
+                  </div>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
+
+        {/* ─── BLOK AKUMULASI PENUTUP & TANDA TANGAN (HANYA DI HALAMAN TERAKHIR) ─── */}
+        <div className="mt-3 break-inside-avoid">
+          {selectedCategory === "Buku" ? (
+            <table className="w-full text-[9.5px] text-center border-collapse border border-black mb-4">
               <tbody>
-                {searchedModulRows.map((r, i) => (
-                  <tr key={r.id} className="border-b border-black/30">
-                    <td className="py-1 px-1 border border-black/40 font-bold">{i + 1}</td>
-                    <td className="py-1 px-1 border border-black/40">{formatTanggalSingkat(r.date)}</td>
-                    <td className="py-1 px-2 border border-black/40 text-left font-bold">{r.name}</td>
-                    <td className="py-1 px-2 border border-black/40 text-left font-semibold">{r.city}</td>
-                    <td className="py-1 px-1 border border-black/40">{r.k1 || 0}</td>
-                    <td className="py-1 px-1 border border-black/40">{r.k2 || 0}</td>
-                    <td className="py-1 px-1 border border-black/40">{r.k3 || 0}</td>
-                    <td className="py-1 px-1 border border-black/40">{r.k4 || 0}</td>
-                    <td className="py-1 px-1 border border-black/40 font-black">{r.jmlh}</td>
-                    <td className="py-1 px-1 border border-black/40 font-bold">{r.ket || "-"}</td>
-                    <td className="py-1 px-1 border border-black/40 text-right">
-                      {r.kontribusiKoperasi > 0 ? r.kontribusiKoperasi.toLocaleString("id-ID") : "-"}
-                    </td>
-                    <td className="py-1 px-1 border border-black/40 text-right">
-                      {r.kontribusiDpw > 0 ? r.kontribusiDpw.toLocaleString("id-ID") : "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-
-              {/* Summary Rows (Hanya di akhir tabel, break-inside-avoid) */}
-              <tbody className="border-t-2 border-black text-black font-semibold break-inside-avoid">
-                <tr className="bg-yellow-200 print:bg-yellow-200 font-black border-b border-black">
-                  <td colSpan={4} className="py-1.5 px-2 text-right uppercase border border-black">Jumlah</td>
-                  <td className="py-1.5 px-1 border border-black">{totalModul.k1}</td>
-                  <td className="py-1.5 px-1 border border-black">{totalModul.k2}</td>
-                  <td className="py-1.5 px-1 border border-black">{totalModul.k3}</td>
-                  <td className="py-1.5 px-1 border border-black">{totalModul.k4}</td>
-                  <td className="py-1.5 px-1 border border-black font-black">{totalModul.jmlh}</td>
-                  <td className="py-1.5 px-1 border border-black"></td>
-                  <td className="py-1.5 px-1 text-right border border-black font-black">{totalModul.koperasi.toLocaleString("id-ID")}</td>
-                  <td className="py-1.5 px-1 text-right border border-black font-black">{totalModul.dpw.toLocaleString("id-ID")}</td>
+                <tr className="bg-yellow-200 font-black border-b border-black">
+                  <td colSpan={4} className="py-1 px-2 text-right uppercase border border-black">Jumlah</td>
+                  <td className="py-1 px-1 border border-black w-8">{totalModul.k1}</td>
+                  <td className="py-1 px-1 border border-black w-8">{totalModul.k2}</td>
+                  <td className="py-1 px-1 border border-black w-8">{totalModul.k3}</td>
+                  <td className="py-1 px-1 border border-black w-8">{totalModul.k4}</td>
+                  <td className="py-1 px-1 border border-black font-black w-10">{totalModul.jmlh}</td>
+                  <td className="py-1 px-1 border border-black w-12"></td>
+                  <td className="py-1 px-1 text-right border border-black font-black w-20">{totalModul.koperasi.toLocaleString("id-ID")}</td>
+                  <td className="py-1 px-1 text-right border border-black font-black w-16">{totalModul.dpw.toLocaleString("id-ID")}</td>
                 </tr>
                 <tr className="border-b border-black">
                   <td colSpan={4} className="py-1 px-2 text-right font-bold uppercase border border-black">Jumlah Modul yang dicetak</td>
@@ -860,74 +1182,24 @@ export default function LaporanWilayahClient({
                   <td colSpan={3} className="py-1 px-1 border border-black"></td>
                 </tr>
                 <tr className="font-black border border-black">
-                  <td colSpan={4} className="py-1.5 px-2 text-right uppercase border border-black">Modal yang belum kembali</td>
-                  <td colSpan={8} className="py-1.5 px-2 border border-black font-black text-left">
+                  <td colSpan={4} className="py-1 px-2 text-right uppercase border border-black">Modal yang belum kembali</td>
+                  <td colSpan={8} className="py-1 px-2 border border-black font-black text-left">
                     Rp {((4000 - totalModul.jmlh) * 24000).toLocaleString("id-ID")}
                   </td>
                 </tr>
               </tbody>
             </table>
-          </div>
-        ) : (
-          /* TABEL CETAK SERAGAM, LAINNYA, ATAU SEMUA */
-          <div className="overflow-x-auto mb-6">
-            <table className="w-full text-[10px] text-left border-collapse border border-black">
-              <thead>
-                <tr className="bg-slate-200 print:bg-slate-200 text-black font-extrabold uppercase border-b border-black">
-                  <th className="py-1.5 px-1 text-center border border-black w-8">NO</th>
-                  <th className="py-1.5 px-1 text-center border border-black w-16">Tanggal</th>
-                  <th className="py-1.5 px-2 border border-black">Nama Pemesan</th>
-                  <th className="py-1.5 px-2 border border-black">Kabupaten/Kota</th>
-                  <th className="py-1.5 px-2 border border-black">Rincian Barang & Ukuran</th>
-                  <th className="py-1.5 px-1 text-center border border-black w-14">Jmlh</th>
-                  <th className="py-1.5 px-2 text-right border border-black w-24">Total Nilai</th>
-                  <th className="py-1.5 px-1 text-center border border-black w-16">Status</th>
-                </tr>
-              </thead>
+          ) : (
+            <div className="border border-black p-2 bg-slate-100 font-extrabold flex justify-between items-center text-xs mb-4">
+              <span>TOTAL KESELURUHAN: {totalGeneric.totalQty} {selectedCategory === "Seragam" ? "Stel" : "Pcs"}</span>
+              <span className="text-sm">Nilai Total: {formatRupiah(totalGeneric.totalAmount)}</span>
+              <span>Lunas: {formatRupiah(totalGeneric.lunas)} | Belum: {formatRupiah(totalGeneric.belumLunas)}</span>
+            </div>
+          )}
 
-              <tbody>
-                {searchedGenericRows.map((r, i) => (
-                  <tr key={r.id} className="border-b border-black/30">
-                    <td className="py-1 px-1 text-center border border-black/40 font-bold">{i + 1}</td>
-                    <td className="py-1 px-1 text-center border border-black/40">{formatTanggalSingkat(r.date)}</td>
-                    <td className="py-1 px-2 border border-black/40 font-bold">{r.name}</td>
-                    <td className="py-1 px-2 border border-black/40 font-semibold">{r.city}</td>
-                    <td className="py-1 px-2 border border-black/40">{r.itemDetails}</td>
-                    <td className="py-1 px-1 text-center border border-black/40 font-bold">
-                      {r.totalQty} {selectedCategory === "Seragam" ? "Stel" : "Pcs"}
-                    </td>
-                    <td className="py-1 px-2 text-right border border-black/40 font-extrabold">
-                      {formatRupiah(r.totalAmount)}
-                    </td>
-                    <td className="py-1 px-1 text-center border border-black/40 font-semibold">
-                      {r.paymentStatus}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-
-              <tbody className="border-t-2 border-black font-extrabold bg-slate-100 print:bg-slate-100 break-inside-avoid">
-                <tr>
-                  <td colSpan={5} className="py-2 px-2 text-right uppercase border border-black">
-                    TOTAL KESELURUHAN
-                  </td>
-                  <td className="py-2 px-1 text-center border border-black font-black">
-                    {totalGeneric.totalQty} {selectedCategory === "Seragam" ? "Stel" : "Pcs"}
-                  </td>
-                  <td className="py-2 px-2 text-right border border-black font-black">
-                    {formatRupiah(totalGeneric.totalAmount)}
-                  </td>
-                  <td className="py-2 px-1 text-center border border-black text-[9px]">
-                    Lunas: {formatRupiah(totalGeneric.lunas)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Tanda Tangan & Keterangan Dokumen Resmi Terpadu */}
-        <ReportFooter />
+          {/* Tanda Tangan Formal Pengawas & Pengurus (Di Halaman Terakhir Saja) */}
+          <ReportFooter hideNote={true} className="mt-4" />
+        </div>
       </div>
     </div>
   );

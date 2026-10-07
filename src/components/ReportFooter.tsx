@@ -8,6 +8,7 @@ interface ReportFooterProps {
   rightRole?: string;
   rightName?: string;
   className?: string;
+  hideNote?: boolean;
 }
 
 export default function ReportFooter({
@@ -18,6 +19,7 @@ export default function ReportFooter({
   rightRole = "Pengurus KOPSYAH FKDT Prov. Sumbar",
   rightName = "( ........................................ )",
   className = "",
+  hideNote = false,
 }: ReportFooterProps) {
   const printDateStr = new Date().toLocaleDateString("id-ID", {
     day: "numeric",
@@ -47,14 +49,16 @@ export default function ReportFooter({
       </div>
 
       {/* ─── GARIS PENUTUP & KETERANGAN CETAK 1 BARIS RINGKAS ─── */}
-      <div className="mt-6 pt-2 border-t border-slate-300 print:border-black/40 flex items-center justify-between text-[9px] text-slate-500 print:text-black/70">
-        <div>
-          Dicetak otomatis melalui Sistem MyKopsyah • Dokumen Resmi Logistik & Keuangan
+      {!hideNote && (
+        <div className="mt-6 pt-2 border-t border-slate-300 print:border-black/40 flex items-center justify-between text-[9px] text-slate-500 print:text-black/70">
+          <div>
+            Dicetak otomatis melalui Sistem MyKopsyah • Dokumen Resmi Logistik & Keuangan
+          </div>
+          <div className="font-semibold">
+            Koperasi Syariah FKDT Sumbar • Halaman 1 dari 1
+          </div>
         </div>
-        <div className="font-semibold">
-          Koperasi Syariah FKDT Sumbar • Halaman 1 dari 1
-        </div>
-      </div>
+      )}
     </div>
   );
 }

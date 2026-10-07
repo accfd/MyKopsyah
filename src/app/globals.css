@@ -60,12 +60,17 @@ body {
   content: "";
 }
 
-/* Print styling for Nota / Thermal Receipt */
+/* Print styling for Nota & Laporan Resmi Multi-Halaman */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 8mm 10mm 8mm;
+  }
+
   body {
     background: #ffffff !important;
     color: #000000 !important;
-    font-size: 12pt !important;
+    font-size: 9pt !important;
   }
 
   .no-print {
@@ -74,6 +79,22 @@ body {
 
   .print-only {
     display: block !important;
+  }
+
+  /* Pastikan thead berulang di setiap halaman cetak */
+  thead {
+    display: table-header-group !important;
+  }
+
+  /* Pastikan running footer berulang di bawah setiap halaman */
+  tfoot.print-running-footer {
+    display: table-footer-group !important;
+  }
+
+  /* Hindari pemotongan baris tabel di tengah halaman */
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   .receipt-container {
