@@ -25,8 +25,8 @@ export default function PublicStokClient({ products }: { products: ProductData[]
       );
     });
 
-  // Nomor WhatsApp resmi Admin Kopsyah: 0895-6191-4774
-  const adminPhone = "6289561914774";
+  // Nomor WhatsApp resmi Admin Kopsyah: 62895619147748
+  const adminPhone = "62895619147748";
   const waLink = `https://wa.me/${adminPhone}?text=${encodeURIComponent(
     "Assalamu'alaikum Admin Kopsyah, saya ingin menanyakan ketersediaan pesanan barang perlengkapan santri..."
   )}`;
@@ -217,7 +217,7 @@ export default function PublicStokClient({ products }: { products: ProductData[]
             className="flex items-center justify-center gap-2.5 w-full py-3.5 px-6 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold rounded-2xl shadow-lg transition-all"
           >
             <MessageCircle className="w-5 h-5 fill-white text-emerald-600" />
-            <span>Pesan / Tanya Admin via WhatsApp (0895-6191-4774)</span>
+            <span>Pesan / Tanya Admin via WhatsApp</span>
           </a>
         </div>
       </div>
