@@ -17,6 +17,8 @@ import {
   CheckCircle2,
   Clock,
 } from "lucide-react";
+import ReportHeader from "@/components/ReportHeader";
+import ReportFooter from "@/components/ReportFooter";
 
 interface DetailModulRow {
   id: number;
@@ -96,14 +98,38 @@ export default function LaporanWilayahClient({
     return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
   }, [transactions]);
 
-  // Label periode yang sedang aktif
+  const romanMonths = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+
+  // Label periode yang elegan & formal
   const periodeLabel = useMemo(() => {
     if (selectedMonth === "SEMUA") {
-      return "PERIODE TAHUN 2026 (SEMUA BULAN)";
+      return "Periode: Tahun Buku 2026";
     }
     const found = availableMonths.find(([k]) => k === selectedMonth);
-    return found ? `PERIODE ${found[1].toUpperCase()}` : `PERIODE ${selectedMonth}`;
+    return found ? `Periode: Bulan ${found[1]}` : `Periode: ${selectedMonth}`;
   }, [selectedMonth, availableMonths]);
+
+  // Nomor dokumen resmi sesuai kategori & periode
+  const documentNumber = useMemo(() => {
+    const code =
+      selectedCategory === "Buku"
+        ? "LAP-MODUL"
+        : selectedCategory === "Seragam"
+        ? "LAP-SRG"
+        : selectedCategory === "Lainnya"
+        ? "LAP-LAIN"
+        : "LAP-WIL";
+
+    if (selectedMonth === "SEMUA") {
+      return `No. Dokumen: 026/${code}/KOPSYAH-FKDT/2026`;
+    }
+    const parts = selectedMonth.split("-");
+    const year = parts[0] || "2026";
+    const monthNum = parseInt(parts[1], 10);
+    const roman = romanMonths[monthNum - 1] || "IX";
+    const paddedMonth = String(monthNum).padStart(3, "0");
+    return `No. Dokumen: ${paddedMonth}/${code}/KOPSYAH-FKDT/${roman}/${year}`;
+  }, [selectedCategory, selectedMonth]);
 
   // Map product id to category
   const productCategoryMap = useMemo(() => {
@@ -374,18 +400,19 @@ export default function LaporanWilayahClient({
           </div>
         </div>
 
-        {/* Toolbar Filter: Kategori, Bulan, & Pencarian */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Filter Kategori - 1 Baris Penuh di PC maupun HP */}
-            <div className="w-full sm:w-auto overflow-x-auto no-scrollbar">
-              <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 rounded-2xl border border-slate-200/80 min-w-[280px] sm:min-w-[340px]">
+        {/* Toolbar Filter: PC (1 Baris Sejajar) vs HP (3 Baris Bersih Proporsional) */}
+        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-2.5">
+          {/* Kelompok Kiri di PC (Kategori & Periode Bulan Berdampingan) */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+            {/* Baris 1 di HP: 4 Tab Kategori Grid Penuh (Buku, Seragam, Lainnya, Semua) */}
+            <div className="w-full sm:w-auto">
+              <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200/80 w-full sm:w-[320px]">
                 {categories.map((cat) => (
                   <button
                     key={cat}
                     type="button"
                     onClick={() => setSelectedCategory(cat)}
-                    className={`py-2 px-2 text-xs font-bold rounded-xl transition-all text-center truncate ${
+                    className={`py-2 px-1 text-xs font-bold rounded-lg transition-all text-center truncate ${
                       selectedCategory === cat
                         ? "bg-white text-emerald-800 shadow-sm font-extrabold"
                         : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
@@ -397,15 +424,15 @@ export default function LaporanWilayahClient({
               </div>
             </div>
 
-            {/* Filter Per Bulan */}
-            <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+            {/* Baris 2 di HP: Filter Periode Bulan & Tahun (Full Width di HP dengan Ikon Kalender) */}
+            <div className="w-full sm:w-auto flex items-center gap-2 bg-slate-100 px-3.5 py-2 rounded-xl border border-slate-200">
               <Calendar className="w-4 h-4 text-emerald-700 shrink-0" />
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer pr-1"
+                className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer w-full sm:w-auto pr-1"
               >
-                <option value="SEMUA">Semua Bulan</option>
+                <option value="SEMUA">Semua Bulan (Tahun Buku)</option>
                 {availableMonths.map(([key, label]) => (
                   <option key={key} value={key}>
                     {label}
@@ -415,8 +442,8 @@ export default function LaporanWilayahClient({
             </div>
           </div>
 
-          {/* Search Box */}
-          <div className="relative w-full sm:w-64">
+          {/* Baris 3 di HP: Kolom Pencarian Cepat Nama / Kab-Kota (Full Width di HP, Fixed di PC) */}
+          <div className="relative w-full md:w-64">
             <input
               type="text"
               value={searchQuery}
@@ -516,9 +543,12 @@ export default function LaporanWilayahClient({
             <div className="p-4 bg-yellow-50 border-b border-yellow-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h3 className="text-base font-bold text-slate-900 uppercase">
-                  {getDocumentTitle()} ({periodeLabel})
+                  {getDocumentTitle()}
                 </h3>
-                <p className="text-xs text-slate-600 mt-0.5">
+                <p className="text-xs font-semibold text-amber-900 mt-0.5 font-mono">
+                  {documentNumber} • {periodeLabel}
+                </p>
+                <p className="text-[11px] text-slate-600 mt-0.5">
                   Format tabel resmi Koperasi Syariah FKDT Provinsi Sumatera Barat.
                 </p>
               </div>
@@ -630,9 +660,12 @@ export default function LaporanWilayahClient({
             <div className="p-4 bg-emerald-50 border-b border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h3 className="text-base font-bold text-slate-900 uppercase">
-                  {getDocumentTitle()} ({periodeLabel})
+                  {getDocumentTitle()}
                 </h3>
-                <p className="text-xs text-slate-600 mt-0.5">
+                <p className="text-xs font-semibold text-emerald-900 mt-0.5 font-mono">
+                  {documentNumber} • {periodeLabel}
+                </p>
+                <p className="text-[11px] text-slate-600 mt-0.5">
                   Daftar transaksi penjualan & penyaluran produk se-Sumatera Barat.
                 </p>
               </div>
@@ -739,50 +772,12 @@ export default function LaporanWilayahClient({
           showPrintPreview ? "block" : "hidden"
         } print:block bg-white text-black p-4 sm:p-8 border border-slate-300 print:border-0 rounded-2xl shadow-xl print:shadow-none print:p-0`}
       >
-        {/* Header Kop Surat Kopsyah FKDT Sumbar - LOGO MURNI SELALU TAMPIL */}
-        <div className="border-b-4 border-black pb-2 mb-1">
-          <div className="flex items-center justify-between gap-3">
-            {/* Logo Koperasi FKDT Indonesia Asli (Tag img native murni agar tidak pernah hilang) */}
-            <div className="w-16 h-16 shrink-0 flex items-center justify-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/logo-kopsyah.png"
-                alt="Logo Koperasi Indonesia"
-                className="w-16 h-16 object-contain"
-              />
-            </div>
-
-            {/* Kop Text: Tepat 2 Baris Utama Tanpa Turun ke Baris 3/4 */}
-            <div className="flex-1 text-center">
-              <h2 className="text-[11px] sm:text-[13px] font-extrabold uppercase tracking-wide leading-tight whitespace-nowrap">
-                Koperasi Syariah Forum Komunikasi Diniyah Takmiliyah
-              </h2>
-              <h1 className="text-[13px] sm:text-[15px] font-black uppercase tracking-wider text-emerald-900 print:text-black leading-tight whitespace-nowrap mt-0.5">
-                (KOPSYAH FKDT) PROVINSI SUMATERA BARAT
-              </h1>
-              <p className="text-[9.5px] leading-tight text-slate-800 print:text-black mt-1">
-                Alamat: Jln. Madani III Blok D No 24 Kecamatan Nanggalo Kota Padang (25144)
-              </p>
-              <p className="text-[9px] leading-tight text-slate-700 print:text-black mt-0.5">
-                HP/WA: 081267417939 – 081266721675 – 081364121872 – 08126786601 – 0895619147748
-              </p>
-            </div>
-
-            {/* Spacer penyeimbang kop */}
-            <div className="w-16 h-16 shrink-0 hidden sm:block" />
-          </div>
-        </div>
-        <div className="border-b border-black mb-4" />
-
-        {/* Dokumen Title Cetak */}
-        <div className="text-center mb-4">
-          <h3 className="text-sm sm:text-base font-black uppercase underline decoration-2">
-            {getDocumentTitle()}
-          </h3>
-          <p className="text-xs font-bold text-slate-800 print:text-black mt-0.5 uppercase">
-            {periodeLabel}
-          </p>
-        </div>
+        {/* Kop Surat & Judul Dokumen Cetak Terpadu */}
+        <ReportHeader
+          title={getDocumentTitle()}
+          documentNumber={documentNumber}
+          period={periodeLabel}
+        />
 
         {/* ─── TABEL CETAK SESUAI KATEGORI ─── */}
         {selectedCategory === "Buku" ? (
@@ -931,24 +926,8 @@ export default function LaporanWilayahClient({
           </div>
         )}
 
-        {/* Tanda Tangan Resmi Pengurus Koperasi FKDT Sumbar */}
-        <div className="mt-8 pt-4 break-inside-avoid text-xs">
-          <div className="flex justify-between items-start text-center px-4">
-            <div>
-              <p className="font-bold">Mengetahui,</p>
-              <p className="font-black text-slate-900 mt-0.5">Pengawas KOPSYAH FKDT</p>
-              <div className="h-16" />
-              <p className="font-black underline uppercase">( ........................................ )</p>
-            </div>
-
-            <div>
-              <p className="font-medium">Padang, {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</p>
-              <p className="font-black text-slate-900 mt-0.5">Pengurus KOPSYAH FKDT Prov. Sumbar</p>
-              <div className="h-16" />
-              <p className="font-black underline uppercase">( ........................................ )</p>
-            </div>
-          </div>
-        </div>
+        {/* Tanda Tangan & Keterangan Dokumen Resmi Terpadu */}
+        <ReportFooter />
       </div>
     </div>
   );

@@ -18,6 +18,7 @@ import {
   Lock,
 } from "lucide-react";
 import Link from "next/link";
+import ReportHeader from "@/components/ReportHeader";
 
 function terbilangRupiah(n: number): string {
   if (n === 0) return "Nol Rupiah";
@@ -155,50 +156,11 @@ export default function DetailTransaksiClient({ tx }: { tx: TransactionData }) {
 
       {/* ─── KERTAS NOTA CETAK RESMI (RESPONSIF PENUH DI HP & PC) ─── */}
       <div className="receipt-container bg-white p-3.5 sm:p-10 rounded-2xl border border-slate-300 print:border-0 shadow-lg print:shadow-none text-black print:p-0">
-        {/* Header Kop Surat Kopsyah FKDT Sumbar - Responsif, Tidak Keluar Kertas */}
-        <div className="border-b-4 border-black pb-2 mb-1">
-          <div className="flex items-center justify-between gap-2 sm:gap-3">
-            {/* Logo Koperasi Indonesia Asli */}
-            <div className="w-12 h-12 sm:w-16 sm:h-16 shrink-0 flex items-center justify-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/logo-kopsyah.png"
-                alt="Logo Koperasi Indonesia"
-                className="w-12 h-12 sm:w-16 sm:h-16 object-contain"
-              />
-            </div>
-
-            {/* Kop Text: Responsif tanpa whitespace-nowrap agar pas di HP */}
-            <div className="flex-1 text-center min-w-0 px-1">
-              <h2 className="text-[10px] sm:text-[13px] font-extrabold uppercase tracking-tight leading-tight text-slate-900 print:text-black">
-                Koperasi Syariah Forum Komunikasi Diniyah Takmiliyah
-              </h2>
-              <h1 className="text-[11px] sm:text-[15px] font-black uppercase tracking-tight sm:tracking-wider text-emerald-900 print:text-black leading-tight mt-0.5">
-                (KOPSYAH FKDT) PROVINSI SUMATERA BARAT
-              </h1>
-              <p className="text-[8px] sm:text-[10px] leading-tight text-slate-800 print:text-black mt-0.5">
-                Alamat: Jln. Madani III Blok D No 24 Kecamatan Nanggalo Kota Padang (25144)
-              </p>
-              <p className="text-[7.5px] sm:text-[9.5px] leading-tight text-slate-700 print:text-black mt-0.5 break-all sm:break-normal">
-                HP/WA: 081267417939 – 081266721675 – 081364121872 – 08126786601 – 0895619147748
-              </p>
-            </div>
-
-            {/* Spacer penyeimbang kop di desktop */}
-            <div className="w-12 h-12 sm:w-16 sm:h-16 shrink-0 hidden sm:block" />
-          </div>
-        </div>
-        <div className="border-b border-black mb-5" />
-
-        {/* ─── Judul Dokumen & Nomor Nota TEPAT DI TENGAH ─── */}
-        <div className="text-center mb-5">
-          <h3 className="text-base sm:text-xl font-black uppercase tracking-wider underline decoration-2">
-            NOTA PENJUALAN
-          </h3>
-          <p className="text-xs sm:text-sm font-mono font-extrabold text-slate-900 print:text-black mt-1">
-            No. Nota: {tx.invoiceNumber}
-          </p>
-        </div>
+        {/* Header Kop Surat Kopsyah FKDT Sumbar Terpadu */}
+        <ReportHeader
+          title="NOTA PENJUALAN"
+          documentNumber={`No. Nota: ${tx.invoiceNumber}`}
+        />
 
         {/* Informasi Nota & Pelanggan */}
         <div className="grid grid-cols-2 gap-4 text-xs mb-5 pb-3 border-b border-black/20">
