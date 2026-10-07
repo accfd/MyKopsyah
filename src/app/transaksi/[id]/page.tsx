@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { isAuthenticated } from "@/lib/auth";
-import { getTransactionById } from "@/lib/data-service";
+import { getTransactionById, getProductsWithVariants } from "@/lib/data-service";
 import AdminShell from "@/components/AdminShell";
 import DetailTransaksiClient from "./DetailTransaksiClient";
 
@@ -22,14 +22,17 @@ export default async function DetailTransaksiPage({
     notFound();
   }
 
-  const tx = await getTransactionById(transactionId);
+  const [tx, products] = await Promise.all([
+    getTransactionById(transactionId),
+    getProductsWithVariants(),
+  ]);
   if (!tx) {
     notFound();
   }
 
   return (
     <AdminShell>
-      <DetailTransaksiClient tx={tx} />
+      <DetailTransaksiClient tx={tx} products={products} />
     </AdminShell>
   );
 }

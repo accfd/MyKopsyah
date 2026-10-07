@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { TransactionData } from "@/lib/data-service";
+import { TransactionData, ProductData } from "@/lib/data-service";
 import { formatRupiah, formatTanggal, generateWhatsAppReceipt } from "@/lib/format";
 import {
   removeTransactionAction,
@@ -19,6 +19,9 @@ import {
   Lock,
   Pencil,
   X,
+  Plus,
+  Minus,
+  ShoppingBag,
 } from "lucide-react";
 import Link from "next/link";
 import ReportHeader from "@/components/ReportHeader";
@@ -66,7 +69,22 @@ function parseItemName(full: string): { productName: string; variantName: string
   return { productName: full, variantName: "-" };
 }
 
-export default function DetailTransaksiClient({ tx }: { tx: TransactionData }) {
+interface EditItemRow {
+  key: string;
+  productId: number;
+  variantId: number;
+  itemName: string;
+  unitPrice: number;
+  quantity: number;
+}
+
+export default function DetailTransaksiClient({
+  tx,
+  products = [],
+}: {
+  tx: TransactionData;
+  products?: ProductData[];
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [copiedWA, setCopiedWA] = useState(false);
@@ -81,6 +99,102 @@ export default function DetailTransaksiClient({ tx }: { tx: TransactionData }) {
   const [editShippingStatus, setEditShippingStatus] = useState<"Belum Dikirim" | "Sudah Dikirim">(tx.shippingStatus);
   const [editNotes, setEditNotes] = useState(tx.notes || "");
 
+  // State untuk item barang pesanan yang dapat diedit
+  const [editItems, setEditItems] = useState<EditItemRow[]>(() =>
+    tx.items.map((it, idx) => ({
+      key: `item-${it.id || idx}`,
+      productId: it.productId,
+      variantId: it.variantId,
+      itemName: it.itemNameSnapshot,
+      unitPrice: it.unitPrice,
+      quantity: it.quantity,
+    }))
+  );
+
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const [addSelectedProductId, setAddSelectedProductId] = useState<number | "">("");
+  const [addSelectedVariantId, setAddSelectedVariantId] = useState<number | "">("");
+  const [addQty, setAddQty] = useState(1);
+
+  const handleOpenEditModal = () => {
+    setEditRecipientName(tx.recipientName || tx.customerNameSnapshot);
+    setEditRecipientPhone(tx.recipientPhone || "");
+    setEditCity(tx.citySnapshot || "");
+    setEditFullAddress(tx.fullAddressSnapshot || "");
+    setEditPaymentStatus(tx.paymentStatus);
+    setEditShippingStatus(tx.shippingStatus);
+    setEditNotes(tx.notes || "");
+    setEditItems(
+      tx.items.map((it, idx) => ({
+        key: `item-${it.id || idx}`,
+        productId: it.productId,
+        variantId: it.variantId,
+        itemName: it.itemNameSnapshot,
+        unitPrice: it.unitPrice,
+        quantity: it.quantity,
+      }))
+    );
+    setIsAddingItem(false);
+    setAddSelectedProductId("");
+    setAddSelectedVariantId("");
+    setAddQty(1);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateItemQty = (index: number, newQty: number) => {
+    if (newQty < 1) return;
+    setEditItems((prev) =>
+      prev.map((it, i) => (i === index ? { ...it, quantity: newQty } : it))
+    );
+  };
+
+  const handleUpdateItemPrice = (index: number, newPrice: number) => {
+    if (newPrice < 0) return;
+    setEditItems((prev) =>
+      prev.map((it, i) => (i === index ? { ...it, unitPrice: newPrice } : it))
+    );
+  };
+
+  const handleRemoveItem = (index: number) => {
+    if (editItems.length <= 1) {
+      alert("Pesanan harus memiliki minimal 1 item barang.");
+      return;
+    }
+    setEditItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddItemToOrder = () => {
+    if (!addSelectedProductId || !addSelectedVariantId) {
+      alert("Silakan pilih produk dan varian barang.");
+      return;
+    }
+    const p = products.find((prod) => prod.id === Number(addSelectedProductId));
+    const v = p?.variants.find((vr) => vr.id === Number(addSelectedVariantId));
+    if (!p || !v) return;
+
+    const itemName = `${p.name} - ${v.variantName}`;
+    setEditItems((prev) => [
+      ...prev,
+      {
+        key: `new-${Date.now()}-${Math.random()}`,
+        productId: p.id,
+        variantId: v.id,
+        itemName,
+        unitPrice: v.price,
+        quantity: Math.max(1, addQty),
+      },
+    ]);
+    setAddSelectedProductId("");
+    setAddSelectedVariantId("");
+    setAddQty(1);
+    setIsAddingItem(false);
+  };
+
+  const totalEditAmount = editItems.reduce(
+    (sum, it) => sum + it.unitPrice * it.quantity,
+    0
+  );
+
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editRecipientName.trim()) {
@@ -89,6 +203,10 @@ export default function DetailTransaksiClient({ tx }: { tx: TransactionData }) {
     }
     if (!editCity.trim()) {
       alert("Kabupaten/Kota tujuan tidak boleh kosong");
+      return;
+    }
+    if (editItems.length === 0) {
+      alert("Pesanan harus memiliki minimal 1 item barang.");
       return;
     }
 
@@ -101,6 +219,13 @@ export default function DetailTransaksiClient({ tx }: { tx: TransactionData }) {
         paymentStatus: editPaymentStatus,
         shippingStatus: editShippingStatus,
         notes: editNotes.trim(),
+        items: editItems.map((it) => ({
+          productId: it.productId,
+          variantId: it.variantId,
+          itemName: it.itemName,
+          unitPrice: it.unitPrice,
+          quantity: it.quantity,
+        })),
       });
       if (res.success) {
         setShowEditModal(false);
@@ -176,9 +301,9 @@ export default function DetailTransaksiClient({ tx }: { tx: TransactionData }) {
           {/* Tombol Edit Nota */}
           <button
             type="button"
-            onClick={() => setShowEditModal(true)}
+            onClick={handleOpenEditModal}
             className="flex items-center gap-1.5 p-2 sm:px-3.5 sm:py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
-            title="Edit Data Pemesan & Status Nota"
+            title="Edit Data Pemesan & Rincian Pesanan"
           >
             <Pencil className="w-4 h-4" />
             <span className="hidden sm:inline">Edit Nota</span>
@@ -442,18 +567,19 @@ export default function DetailTransaksiClient({ tx }: { tx: TransactionData }) {
           </div>
         </div>
       )}
-      {/* ─── MODAL EDIT RINCIAN NOTA ─── */}
+      {/* ─── MODAL EDIT NOTA & RINCIAN PESANAN LENGKAP ─── */}
       {showEditModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs no-print overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-200 my-8">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs no-print">
+          <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+            {/* Header Modal Sticky */}
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80 shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-700">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-700 shrink-0">
                   <Pencil className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-extrabold text-base text-slate-900">
-                    Edit Rincian Nota
+                    Edit Nota & Rincian Pesanan
                   </h3>
                   <p className="text-xs text-slate-500 font-mono">
                     {tx.invoiceNumber}
@@ -463,128 +589,341 @@ export default function DetailTransaksiClient({ tx }: { tx: TransactionData }) {
               <button
                 type="button"
                 onClick={() => setShowEditModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-200 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveEdit} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Nama Penerima / Pemesan <span className="text-rose-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editRecipientName}
-                  onChange={(e) => setEditRecipientName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs sm:text-sm font-semibold"
-                  placeholder="Nama pemesan atau instansi..."
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Nomor WhatsApp / HP
-                </label>
-                <input
-                  type="text"
-                  value={editRecipientPhone}
-                  onChange={(e) => setEditRecipientPhone(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs sm:text-sm font-semibold font-mono"
-                  placeholder="08123456789..."
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Kabupaten / Kota Tujuan <span className="text-rose-600">*</span>
-                </label>
-                <CityCombobox
-                  value={editCity}
-                  onChange={(c) => setEditCity(c)}
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Alamat Lengkap Pengiriman
-                </label>
-                <textarea
-                  rows={2}
-                  value={editFullAddress}
-                  onChange={(e) => setEditFullAddress(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs font-medium"
-                  placeholder="Jalan, No, Kelurahan, Kecamatan..."
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    Status Pembayaran
-                  </label>
-                  <select
-                    value={editPaymentStatus}
-                    onChange={(e) => setEditPaymentStatus(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs font-bold"
-                  >
-                    <option value="Belum Lunas">Belum Lunas</option>
-                    <option value="Lunas">Lunas</option>
-                  </select>
+            {/* Form & Konten Scrollable */}
+            <form onSubmit={handleSaveEdit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 text-xs">
+              {/* BAGIAN 1: DATA PEMESAN & TUJUAN */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 pb-1.5 border-b border-slate-200 text-slate-800 font-extrabold text-sm">
+                  <span>1. Data Pemesan & Status Nota</span>
                 </div>
 
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    Status Pengiriman
-                  </label>
-                  <select
-                    value={editShippingStatus}
-                    onChange={(e) => setEditShippingStatus(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs font-bold"
-                  >
-                    <option value="Belum Dikirim">Belum Dikirim</option>
-                    <option value="Sudah Dikirim">Sudah Dikirim</option>
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Nama Penerima / Pemesan <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editRecipientName}
+                      onChange={(e) => setEditRecipientName(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs sm:text-sm font-semibold"
+                      placeholder="Nama pemesan atau instansi..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Nomor WhatsApp / HP
+                    </label>
+                    <input
+                      type="text"
+                      value={editRecipientPhone}
+                      onChange={(e) => setEditRecipientPhone(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs sm:text-sm font-semibold font-mono"
+                      placeholder="08123456789..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Kabupaten / Kota Tujuan <span className="text-rose-600">*</span>
+                    </label>
+                    <CityCombobox
+                      value={editCity}
+                      onChange={(c) => setEditCity(c)}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Alamat Lengkap Pengiriman
+                    </label>
+                    <input
+                      type="text"
+                      value={editFullAddress}
+                      onChange={(e) => setEditFullAddress(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs font-medium"
+                      placeholder="Jalan, No, Kelurahan, Kecamatan..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Status Pembayaran
+                    </label>
+                    <select
+                      value={editPaymentStatus}
+                      onChange={(e) => setEditPaymentStatus(e.target.value as any)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs font-bold"
+                    >
+                      <option value="Belum Lunas">Belum Lunas</option>
+                      <option value="Lunas">Lunas</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Status Pengiriman
+                    </label>
+                    <select
+                      value={editShippingStatus}
+                      onChange={(e) => setEditShippingStatus(e.target.value as any)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs font-bold"
+                    >
+                      <option value="Belum Dikirim">Belum Dikirim</option>
+                      <option value="Sudah Dikirim">Sudah Dikirim</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold text-slate-700 mb-1">
+                      Catatan Transaksi
+                    </label>
+                    <input
+                      type="text"
+                      value={editNotes}
+                      onChange={(e) => setEditNotes(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs font-medium"
+                      placeholder="Catatan tambahan..."
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Catatan Transaksi
-                </label>
-                <input
-                  type="text"
-                  value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-xs font-medium"
-                  placeholder="Catatan tambahan nota..."
-                />
+              {/* BAGIAN 2: RINCIAN BARANG & PESANAN */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
+                  <div className="flex items-center gap-2 text-slate-800 font-extrabold text-sm">
+                    <ShoppingBag className="w-4 h-4 text-emerald-700" />
+                    <span>2. Rincian Barang Pesanan</span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                      {editItems.length} Item
+                    </span>
+                  </div>
+
+                  {!isAddingItem && products.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingItem(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Tambah Barang</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Form Tambah Barang Baru ke Pesanan */}
+                {isAddingItem && (
+                  <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-xs text-emerald-900">
+                        Tambah Barang Baru ke Nota
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingItem(false)}
+                        className="text-slate-400 hover:text-slate-600 p-1"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      {/* Pilih Produk */}
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">
+                          Pilih Produk
+                        </label>
+                        <select
+                          value={addSelectedProductId}
+                          onChange={(e) => {
+                            const pId = e.target.value ? Number(e.target.value) : "";
+                            setAddSelectedProductId(pId);
+                            setAddSelectedVariantId("");
+                          }}
+                          className="w-full px-2.5 py-2 border border-slate-300 rounded-xl bg-white text-xs font-semibold"
+                        >
+                          <option value="">-- Pilih Produk --</option>
+                          {products.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} ({p.category})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Pilih Varian */}
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">
+                          Pilih Varian & Ukuran
+                        </label>
+                        <select
+                          disabled={!addSelectedProductId}
+                          value={addSelectedVariantId}
+                          onChange={(e) => setAddSelectedVariantId(e.target.value ? Number(e.target.value) : "")}
+                          className="w-full px-2.5 py-2 border border-slate-300 rounded-xl bg-white text-xs font-semibold disabled:bg-slate-100"
+                        >
+                          <option value="">-- Pilih Varian --</option>
+                          {addSelectedProductId &&
+                            products
+                              .find((p) => p.id === Number(addSelectedProductId))
+                              ?.variants.map((v) => (
+                                <option key={v.id} value={v.id}>
+                                  {v.variantName} (Stok: {v.stockQuantity} | {formatRupiah(v.price)})
+                                </option>
+                              ))}
+                        </select>
+                      </div>
+
+                      {/* Jumlah Qty */}
+                      <div className="flex items-end gap-2">
+                        <div className="flex-1">
+                          <label className="block font-bold text-slate-700 mb-1">
+                            Jumlah (Qty)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={addQty}
+                            onChange={(e) => setAddQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                            className="w-full px-2.5 py-2 border border-slate-300 rounded-xl bg-white text-xs font-bold text-center"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleAddItemToOrder}
+                          className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs h-[38px] shadow-xs active:scale-95 cursor-pointer"
+                        >
+                          + Tambah
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tabel Item Pesanan */}
+                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead className="bg-slate-100 text-slate-800 font-extrabold uppercase border-b border-slate-200">
+                      <tr>
+                        <th className="py-2 px-2 text-center w-8">#</th>
+                        <th className="py-2 px-3">Nama Barang & Varian</th>
+                        <th className="py-2 px-2 text-center w-32">Kuantitas (Qty)</th>
+                        <th className="py-2 px-3 text-right w-32">Harga Satuan (Rp)</th>
+                        <th className="py-2 px-3 text-right w-28">Subtotal</th>
+                        <th className="py-2 px-2 text-center w-10">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {editItems.map((item, idx) => (
+                        <tr key={item.key} className="hover:bg-slate-50/60">
+                          <td className="py-2 px-2 text-center font-bold text-slate-500">
+                            {idx + 1}
+                          </td>
+                          <td className="py-2 px-3 font-bold text-slate-900">
+                            {item.itemName}
+                          </td>
+                          <td className="py-2 px-2 text-center">
+                            <div className="inline-flex items-center gap-1 border border-slate-300 rounded-xl px-1 py-0.5 bg-white">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateItemQty(idx, item.quantity - 1)}
+                                className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-600 font-bold active:scale-90"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={(e) => handleUpdateItemQty(idx, parseInt(e.target.value, 10) || 1)}
+                                className="w-12 text-center font-extrabold text-xs bg-transparent focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateItemQty(idx, item.quantity + 1)}
+                                className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-600 font-bold active:scale-90"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </td>
+                          <td className="py-2 px-3 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              step="500"
+                              value={item.unitPrice}
+                              onChange={(e) => handleUpdateItemPrice(idx, parseInt(e.target.value, 10) || 0)}
+                              className="w-24 text-right px-2 py-1 border border-slate-300 rounded-lg text-xs font-semibold focus:ring-1 focus:ring-amber-500"
+                            />
+                          </td>
+                          <td className="py-2 px-3 text-right font-extrabold text-emerald-800">
+                            {formatRupiah(item.unitPrice * item.quantity)}
+                          </td>
+                          <td className="py-2 px-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(idx)}
+                              className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="Hapus barang ini dari nota"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-emerald-50/80 border-t-2 border-emerald-200 font-extrabold text-slate-900">
+                      <tr>
+                        <td colSpan={4} className="py-2.5 px-3 text-right uppercase">
+                          TOTAL TAGIHAN NOTA BARU:
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-black text-emerald-900 text-sm">
+                          {formatRupiah(totalEditAmount)}
+                        </td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-600">
+                  ℹ️ <strong>Penyesuaian Otomatis:</strong> Setiap perubahan jumlah atau barang pada pesanan ini akan secara otomatis memperbarui catatan stok gudang dan nilai total transaksi di pembukuan Koperasi.
+                </div>
               </div>
 
-              <div className="flex items-center gap-2.5 pt-3">
+              {/* Tombol Aksi Bawah */}
+              <div className="flex items-center gap-3 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
                   disabled={isPending}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-xs sm:text-sm hover:bg-slate-100 transition-colors cursor-pointer"
+                  className="flex-1 py-3 rounded-xl border border-slate-300 text-slate-700 font-semibold text-xs sm:text-sm hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs sm:text-sm shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs sm:text-sm shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isPending ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Menyimpan...</span>
+                      <span>Menyimpan Seluruh Perubahan...</span>
                     </>
                   ) : (
-                    <span>Simpan Perubahan</span>
+                    <span>Simpan Seluruh Perubahan Nota</span>
                   )}
                 </button>
               </div>

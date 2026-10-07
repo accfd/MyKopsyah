@@ -1134,6 +1134,14 @@ export async function updateTransactionStatus(
   return true;
 }
 
+export interface UpdateTransactionItemInput {
+  productId?: number;
+  variantId?: number;
+  itemName: string;
+  unitPrice: number;
+  quantity: number;
+}
+
 export interface UpdateTransactionDetailsInput {
   recipientName?: string;
   recipientPhone?: string;
@@ -1142,6 +1150,7 @@ export interface UpdateTransactionDetailsInput {
   paymentStatus?: "Belum Lunas" | "Lunas";
   shippingStatus?: "Belum Dikirim" | "Sudah Dikirim";
   notes?: string;
+  items?: UpdateTransactionItemInput[];
 }
 
 export async function updateTransactionDetails(
@@ -1169,6 +1178,61 @@ export async function updateTransactionDetails(
       if (input.shippingStatus !== undefined) updates.statusPengiriman = input.shippingStatus;
       if (input.notes !== undefined) updates.catatan = input.notes || null;
 
+      // Update rincian pesanan barang jika ada
+      if (input.items && input.items.length > 0) {
+        const oldItems = await db
+          .select()
+          .from(schema.itemTransaksi)
+          .where(eq(schema.itemTransaksi.transaksiId, transactionId));
+
+        // 1. Rollback stok item lama ke tabel varian_produk
+        for (const oldIt of oldItems) {
+          if (oldIt.varianId) {
+            await db
+              .update(schema.varianProduk)
+              .set({
+                jumlahStok: sql`${schema.varianProduk.jumlahStok} + ${oldIt.jumlah}`,
+              })
+              .where(eq(schema.varianProduk.id, oldIt.varianId));
+          }
+        }
+
+        // 2. Kurangi stok baru dari varian_produk & hitung total tagihan baru
+        let newTotal = 0;
+        for (const newIt of input.items) {
+          const subtotal = newIt.unitPrice * newIt.quantity;
+          newTotal += subtotal;
+          if (newIt.variantId) {
+            await db
+              .update(schema.varianProduk)
+              .set({
+                jumlahStok: sql`${schema.varianProduk.jumlahStok} - ${newIt.quantity}`,
+              })
+              .where(eq(schema.varianProduk.id, newIt.variantId));
+          }
+        }
+
+        // 3. Hapus item transaksi lama
+        await db
+          .delete(schema.itemTransaksi)
+          .where(eq(schema.itemTransaksi.transaksiId, transactionId));
+
+        // 4. Masukkan item transaksi yang telah diperbarui
+        for (const newIt of input.items) {
+          await db.insert(schema.itemTransaksi).values({
+            transaksiId: transactionId,
+            produkId: newIt.productId || null,
+            varianId: newIt.variantId || null,
+            namaItem: newIt.itemName,
+            hargaSatuan: newIt.unitPrice,
+            jumlah: newIt.quantity,
+            subtotal: newIt.unitPrice * newIt.quantity,
+          });
+        }
+
+        updates.totalTagihan = newTotal;
+      }
+
       await db
         .update(schema.transaksi)
         .set(updates)
@@ -1189,6 +1253,24 @@ export async function updateTransactionDetails(
           if (input.paymentStatus !== undefined) tx.paymentStatus = input.paymentStatus;
           if (input.shippingStatus !== undefined) tx.shippingStatus = input.shippingStatus;
           if (input.notes !== undefined) tx.notes = input.notes || "";
+          if (input.items && input.items.length > 0) {
+            let localTotal = 0;
+            tx.items = input.items.map((it, idx) => {
+              const subtotal = it.unitPrice * it.quantity;
+              localTotal += subtotal;
+              return {
+                id: idx + 1,
+                transactionId,
+                productId: it.productId || 0,
+                variantId: it.variantId || 0,
+                itemNameSnapshot: it.itemName,
+                unitPrice: it.unitPrice,
+                quantity: it.quantity,
+                subtotal,
+              };
+            });
+            tx.totalAmount = localTotal;
+          }
           writeLocalStore(store);
         }
       } catch {}
@@ -1216,6 +1298,34 @@ export async function updateTransactionDetails(
   if (input.paymentStatus !== undefined) tx.paymentStatus = input.paymentStatus;
   if (input.shippingStatus !== undefined) tx.shippingStatus = input.shippingStatus;
   if (input.notes !== undefined) tx.notes = input.notes || "";
+  if (input.items && input.items.length > 0) {
+    for (const oldIt of tx.items) {
+      for (const p of store.products) {
+        const v = p.variants.find((va) => va.id === oldIt.variantId);
+        if (v) { v.stockQuantity += oldIt.quantity; break; }
+      }
+    }
+    let localTotal = 0;
+    tx.items = input.items.map((it, idx) => {
+      const subtotal = it.unitPrice * it.quantity;
+      localTotal += subtotal;
+      for (const p of store.products) {
+        const v = p.variants.find((va) => va.id === it.variantId);
+        if (v) { v.stockQuantity -= it.quantity; break; }
+      }
+      return {
+        id: idx + 1,
+        transactionId,
+        productId: it.productId || 0,
+        variantId: it.variantId || 0,
+        itemNameSnapshot: it.itemName,
+        unitPrice: it.unitPrice,
+        quantity: it.quantity,
+        subtotal,
+      };
+    });
+    tx.totalAmount = localTotal;
+  }
   writeLocalStore(store);
   return { success: true };
 }
