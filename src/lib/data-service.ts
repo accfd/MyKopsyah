@@ -1232,6 +1232,128 @@ export async function getPelanggan(): Promise<PelangganData[]> {
 
 export const getCustomers = getPelanggan;
 
+export interface CreatePelangganInput {
+  nama: string;
+  tipePelanggan?: string;
+  noTelepon: string;
+  kota: string;
+  provinsi?: string;
+  alamatLengkap?: string;
+}
+
+export async function createPelanggan(
+  input: CreatePelangganInput
+): Promise<{ success: boolean; pelangganId?: number; error?: string }> {
+  if (!input.nama || !input.nama.trim()) {
+    return { success: false, error: "Nama pelanggan wajib diisi" };
+  }
+  if (!input.noTelepon || !input.noTelepon.trim()) {
+    return { success: false, error: "Nomor telepon/WhatsApp wajib diisi" };
+  }
+  if (!input.kota || !input.kota.trim()) {
+    return { success: false, error: "Kota / Kabupaten asal wajib dipilih" };
+  }
+
+  const cleanNama = input.nama.trim();
+  const cleanPhone = input.noTelepon.trim();
+  const cleanKota = input.kota.trim();
+  const cleanTipe = input.tipePelanggan?.trim() || "Perorangan / Wali Santri";
+  const cleanAlamat = input.alamatLengkap?.trim() || null;
+  const cleanProv = input.provinsi?.trim() || "Sumatera Barat";
+
+  if (isDbConfigured) {
+    try {
+      const [inserted] = await db
+        .insert(schema.pelanggan)
+        .values({
+          nama: cleanNama,
+          tipePelanggan: cleanTipe,
+          noTelepon: cleanPhone,
+          kota: cleanKota,
+          provinsi: cleanProv,
+          alamatLengkap: cleanAlamat,
+        })
+        .returning({ id: schema.pelanggan.id });
+      return { success: true, pelangganId: inserted.id };
+    } catch (e: any) {
+      console.warn("Neon createPelanggan failed:", e);
+      return { success: false, error: e.message };
+    }
+  }
+
+  const store = readLocalStore();
+  const newId = store.nextIds.customer++;
+  store.customers.unshift({
+    id: newId,
+    customerType: cleanTipe,
+    institutionName: cleanTipe.includes("Instansi") ? cleanNama : null,
+    contactPerson: cleanNama,
+    phoneNumber: cleanPhone,
+    city: cleanKota,
+    province: cleanProv,
+    fullAddress: cleanAlamat,
+  });
+  writeLocalStore(store);
+  return { success: true, pelangganId: newId };
+}
+
+export async function updatePelanggan(
+  id: number,
+  input: Partial<CreatePelangganInput>
+): Promise<{ success: boolean; error?: string }> {
+  if (isDbConfigured) {
+    try {
+      const updates: any = {};
+      if (input.nama !== undefined) updates.nama = input.nama.trim();
+      if (input.tipePelanggan !== undefined) updates.tipePelanggan = input.tipePelanggan.trim();
+      if (input.noTelepon !== undefined) updates.noTelepon = input.noTelepon.trim();
+      if (input.kota !== undefined) updates.kota = input.kota.trim();
+      if (input.provinsi !== undefined) updates.provinsi = input.provinsi.trim();
+      if (input.alamatLengkap !== undefined) updates.alamatLengkap = input.alamatLengkap.trim();
+
+      await db.update(schema.pelanggan).set(updates).where(eq(schema.pelanggan.id, id));
+      return { success: true };
+    } catch (e: any) {
+      console.warn("Neon updatePelanggan failed:", e);
+      return { success: false, error: e.message };
+    }
+  }
+
+  const store = readLocalStore();
+  const target = store.customers.find((c) => c.id === id);
+  if (target) {
+    if (input.nama) { target.contactPerson = input.nama; target.institutionName = input.nama; }
+    if (input.noTelepon) target.phoneNumber = input.noTelepon;
+    if (input.kota) target.city = input.kota;
+    if (input.alamatLengkap) target.fullAddress = input.alamatLengkap;
+    if (input.tipePelanggan) target.customerType = input.tipePelanggan;
+    writeLocalStore(store);
+    return { success: true };
+  }
+  return { success: false, error: "Pelanggan tidak ditemukan" };
+}
+
+export async function deletePelanggan(id: number): Promise<{ success: boolean; error?: string }> {
+  if (isDbConfigured) {
+    try {
+      await db.delete(schema.pelanggan).where(eq(schema.pelanggan.id, id));
+      return { success: true };
+    } catch (e: any) {
+      console.warn("Neon deletePelanggan failed:", e);
+      return { success: false, error: e.message };
+    }
+  }
+
+  const store = readLocalStore();
+  const index = store.customers.findIndex((c) => c.id === id);
+  if (index !== -1) {
+    store.customers.splice(index, 1);
+    writeLocalStore(store);
+    return { success: true };
+  }
+  return { success: false, error: "Pelanggan tidak ditemukan" };
+}
+
 export async function getRegionalReport() {
   const txs = await getTransactions();
 

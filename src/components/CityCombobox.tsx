@@ -189,10 +189,6 @@ export default function CityCombobox({ value, onChange, required = false }: City
         </div>
       )}
 
-      <p className="text-xs text-slate-500">
-        💡 <span className="font-semibold">Tips:</span> Ketik nama kota/kabupaten, lalu klik pilihan
-        yang muncul di daftar.
-      </p>
     </div>
   );
 }

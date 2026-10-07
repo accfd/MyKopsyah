@@ -12,6 +12,7 @@ import {
   History,
   MapPin,
   Settings,
+  Users,
   X,
   ChevronRight,
 } from "lucide-react";
@@ -45,6 +46,7 @@ export default function AdminMobileDrawer({ isOpen, onClose }: AdminMobileDrawer
     { label: "Dasbor Utama", href: "/dashboard", icon: LayoutDashboard },
     { label: "Kasir Penjualan", href: "/transaksi/baru", icon: ShoppingCart, highlight: true },
     { label: "Daftar Transaksi", href: "/transaksi", icon: ReceiptText },
+    { label: "Data Pelanggan", href: "/pelanggan", icon: Users },
     { label: "Katalog Produk", href: "/produk", icon: Package },
     { label: "Riwayat Stok Masuk", href: "/riwayat-stok", icon: History },
     { label: "Rekap Wilayah", href: "/laporan/wilayah", icon: MapPin },

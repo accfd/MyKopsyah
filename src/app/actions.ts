@@ -185,3 +185,42 @@ export async function updateProductAction(productId: number, input: any) {
   return result;
 }
 
+export async function createPelangganAction(input: any) {
+  const auth = await isAuthenticated();
+  if (!auth) return { success: false, error: "Unauthorized" };
+
+  const { createPelanggan } = await import("@/lib/data-service");
+  const result = await createPelanggan(input);
+  if (result.success) {
+    revalidatePath("/pelanggan");
+    revalidatePath("/transaksi/baru");
+  }
+  return result;
+}
+
+export async function updatePelangganAction(id: number, input: any) {
+  const auth = await isAuthenticated();
+  if (!auth) return { success: false, error: "Unauthorized" };
+
+  const { updatePelanggan } = await import("@/lib/data-service");
+  const result = await updatePelanggan(id, input);
+  if (result.success) {
+    revalidatePath("/pelanggan");
+    revalidatePath("/transaksi/baru");
+  }
+  return result;
+}
+
+export async function deletePelangganAction(id: number) {
+  const auth = await isAuthenticated();
+  if (!auth) return { success: false, error: "Unauthorized" };
+
+  const { deletePelanggan } = await import("@/lib/data-service");
+  const result = await deletePelanggan(id);
+  if (result.success) {
+    revalidatePath("/pelanggan");
+    revalidatePath("/transaksi/baru");
+  }
+  return result;
+}
+

@@ -524,19 +524,6 @@ _Jazakumullahu khairan atas kepercayaannya berbelanja di Kopsyah._ 🙏`;
         }}
         className="space-y-6 sm:space-y-8 pb-36"
       >
-        {/* Banner Navigasi Keyboard Cepat POS */}
-        <div className="bg-emerald-50/80 border border-emerald-200/90 rounded-2xl p-3 sm:px-4 sm:py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-900">
-          <div className="flex items-center gap-2 font-bold">
-            <Keyboard className="w-4 h-4 text-emerald-700" />
-            <span>Mode Input Cepat (Keyboard Friendly):</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-emerald-800">
-            <span><kbd className="px-1.5 py-0.5 bg-white border border-emerald-300 rounded font-mono font-bold shadow-2xs">↑ / ↓</kbd> Sorot Data</span>
-            <span><kbd className="px-1.5 py-0.5 bg-white border border-emerald-300 rounded font-mono font-bold shadow-2xs">Enter</kbd> Pilih & Pindah Field</span>
-            <span><kbd className="px-1.5 py-0.5 bg-white border border-emerald-300 rounded font-mono font-bold shadow-2xs">Ctrl + Enter</kbd> Simpan Transaksi</span>
-          </div>
-        </div>
-
         {errorMessage && (
           <div className="p-4 bg-rose-50 border-l-4 border-rose-600 rounded-r-xl text-rose-800 text-sm font-semibold flex items-center gap-2">
             <AlertCircle className="w-5 h-5 shrink-0 text-rose-600" />
@@ -554,13 +541,8 @@ _Jazakumullahu khairan atas kepercayaannya berbelanja di Kopsyah._ 🙏`;
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Nama Penerima with Autocomplete */}
             <div className="relative" ref={customerDropdownRef}>
-              <label className="block text-sm font-semibold text-slate-800 mb-1.5 flex items-center justify-between">
-                <span>
-                  Nama Penerima <span className="text-rose-500">*</span>
-                </span>
-                <span className="text-[10px] text-slate-400 font-normal hidden sm:inline">
-                  [↑/↓ Sorot, Enter Pilih]
-                </span>
+              <label className="block text-sm font-semibold text-slate-800 mb-1.5">
+                Nama Penerima <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <input
@@ -634,9 +616,6 @@ _Jazakumullahu khairan atas kepercayaannya berbelanja di Kopsyah._ 🙏`;
                   })}
                 </div>
               )}
-              <p className="text-xs text-slate-500 mt-1">
-                Ketik nama pengurus/ponpes. Gunakan panah atau Enter untuk memilih otomatis.
-              </p>
             </div>
 
             <div>
@@ -691,11 +670,8 @@ _Jazakumullahu khairan atas kepercayaannya berbelanja di Kopsyah._ 🙏`;
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
               {/* Searchable Produk Combobox */}
               <div className="lg:col-span-5 relative" ref={productMenuRef}>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1 flex items-center justify-between">
-                  <span>Pilih Produk</span>
-                  <span className="text-[10px] text-slate-400 font-normal hidden sm:inline">
-                    [↑/↓ Sorot, Enter Pilih]
-                  </span>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Pilih Produk
                 </label>
                 <div className="relative">
                   <input
