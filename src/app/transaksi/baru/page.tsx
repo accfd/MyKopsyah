@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { isAuthenticated } from "@/lib/auth";
-import { getProductsWithVariants, getTransactions } from "@/lib/data-service";
+import { getProductsWithVariants, getPelanggan } from "@/lib/data-service";
 import AdminShell from "@/components/AdminShell";
 import KasirForm from "./KasirForm";
 import Link from "next/link";
@@ -14,24 +14,17 @@ export default async function TransaksiBaruPage() {
     redirect("/login");
   }
 
-  const [products, transactions] = await Promise.all([
+  const [products, customers] = await Promise.all([
     getProductsWithVariants(),
-    getTransactions(),
+    getPelanggan(),
   ]);
 
-  const customerMap = new Map<string, { name: string; phone: string; city: string; address?: string | null }>();
-  for (const tx of transactions) {
-    const name = (tx.recipientName || tx.customerNameSnapshot || "").trim();
-    if (name && !customerMap.has(name.toLowerCase())) {
-      customerMap.set(name.toLowerCase(), {
-        name,
-        phone: tx.recipientPhone || "",
-        city: tx.citySnapshot || "",
-        address: tx.fullAddressSnapshot || "",
-      });
-    }
-  }
-  const pastCustomers = Array.from(customerMap.values());
+  const pastCustomers = customers.map((c) => ({
+    name: c.nama,
+    phone: c.noTelepon,
+    city: c.kota,
+    address: c.alamatLengkap,
+  }));
 
   return (
     <AdminShell>

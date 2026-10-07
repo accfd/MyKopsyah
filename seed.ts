@@ -21,32 +21,31 @@ async function runSeed() {
   console.log("Seeding products and variants...");
   for (const prod of INITIAL_PRODUCTS) {
     const [insertedProd] = await db
-      .insert(schema.products)
+      .insert(schema.produk)
       .values({
-        name: prod.name,
-        category: prod.category,
-        hasVariants: prod.hasVariants,
-        unit: prod.unit,
+        nama: prod.name,
+        kategori: prod.category,
+        satuan: prod.unit,
       })
       .returning();
 
     for (const v of prod.variants) {
       const [insertedVar] = await db
-        .insert(schema.productVariants)
+        .insert(schema.varianProduk)
         .values({
-          productId: insertedProd.id,
-          variantName: v.variantName,
-          price: v.price,
-          stockQuantity: v.stockQuantity,
-          skuCode: v.skuCode || null,
+          produkId: insertedProd.id,
+          namaVarian: v.variantName,
+          harga: v.price,
+          jumlahStok: v.stockQuantity,
+          kodeSku: v.skuCode || null,
         })
         .returning();
 
       // Seed initial stock entry
-      await db.insert(schema.stockEntries).values({
-        variantId: insertedVar.id,
-        quantityAdded: v.stockQuantity,
-        supplierOrNotes: "Stok Awal Sistem",
+      await db.insert(schema.riwayatStok).values({
+        varianId: insertedVar.id,
+        jumlahMasuk: v.stockQuantity,
+        keterangan: "Stok Awal Sistem",
       });
     }
   }

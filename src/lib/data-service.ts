@@ -243,24 +243,24 @@ function writeLocalStore(state: LocalStoreState) {
 export async function getProductsWithVariants(): Promise<ProductData[]> {
   if (isDbConfigured) {
     try {
-      const allProds = await db.select().from(schema.products);
-      const allVars = await db.select().from(schema.productVariants);
+      const allProds = await db.select().from(schema.produk);
+      const allVars = await db.select().from(schema.varianProduk);
 
       return allProds.map((prod) => ({
         id: prod.id,
-        name: prod.name,
-        category: prod.category,
-        hasVariants: prod.hasVariants,
-        unit: prod.unit,
+        name: prod.nama,
+        category: prod.kategori,
+        hasVariants: true,
+        unit: prod.satuan,
         variants: allVars
-          .filter((v) => v.productId === prod.id)
+          .filter((v) => v.produkId === prod.id)
           .map((v) => ({
             id: v.id,
-            productId: v.productId,
-            variantName: v.variantName,
-            price: v.price,
-            stockQuantity: v.stockQuantity,
-            skuCode: v.skuCode,
+            productId: v.produkId,
+            variantName: v.namaVarian,
+            price: v.harga,
+            stockQuantity: v.jumlahStok,
+            skuCode: v.kodeSku,
           })),
       }));
     } catch (err) {
@@ -276,9 +276,9 @@ export async function updateVariantPrice(variantId: number, newPrice: number): P
   if (isDbConfigured) {
     try {
       await db
-        .update(schema.productVariants)
-        .set({ price: newPrice })
-        .where(eq(schema.productVariants.id, variantId));
+        .update(schema.varianProduk)
+        .set({ harga: newPrice })
+        .where(eq(schema.varianProduk.id, variantId));
       return true;
     } catch (e) {
       console.warn("Neon update price failed:", e);
@@ -308,18 +308,18 @@ export async function addStockEntry(
 
   if (isDbConfigured) {
     try {
-      await db.insert(schema.stockEntries).values({
-        variantId,
-        quantityAdded,
-        supplierOrNotes: supplierOrNotes || null,
+      await db.insert(schema.riwayatStok).values({
+        varianId: variantId,
+        jumlahMasuk: quantityAdded,
+        keterangan: supplierOrNotes || null,
       });
 
       await db
-        .update(schema.productVariants)
+        .update(schema.varianProduk)
         .set({
-          stockQuantity: sql`${schema.productVariants.stockQuantity} + ${quantityAdded}`,
+          jumlahStok: sql`${schema.varianProduk.jumlahStok} + ${quantityAdded}`,
         })
-        .where(eq(schema.productVariants.id, variantId));
+        .where(eq(schema.varianProduk.id, variantId));
 
       return { success: true };
     } catch (e: any) {
@@ -377,18 +377,18 @@ export async function addBatchStockEntries(
   if (isDbConfigured) {
     try {
       for (const it of validItems) {
-        await db.insert(schema.stockEntries).values({
-          variantId: it.variantId,
-          quantityAdded: it.quantityAdded,
-          supplierOrNotes: supplierOrNotes || null,
+        await db.insert(schema.riwayatStok).values({
+          varianId: it.variantId,
+          jumlahMasuk: it.quantityAdded,
+          keterangan: supplierOrNotes || null,
         });
 
         await db
-          .update(schema.productVariants)
+          .update(schema.varianProduk)
           .set({
-            stockQuantity: sql`${schema.productVariants.stockQuantity} + ${it.quantityAdded}`,
+            jumlahStok: sql`${schema.varianProduk.jumlahStok} + ${it.quantityAdded}`,
           })
-          .where(eq(schema.productVariants.id, it.variantId));
+          .where(eq(schema.varianProduk.id, it.variantId));
       }
       return { success: true };
     } catch (e: any) {
@@ -458,32 +458,31 @@ export async function createProduct(
   if (isDbConfigured) {
     try {
       const [newProd] = await db
-        .insert(schema.products)
+        .insert(schema.produk)
         .values({
-          name: cleanName,
-          category: cleanCategory,
-          hasVariants: true,
-          unit: cleanUnit,
+          nama: cleanName,
+          kategori: cleanCategory,
+          satuan: cleanUnit,
         })
-        .returning({ id: schema.products.id });
+        .returning({ id: schema.produk.id });
 
       for (const v of input.variants) {
         const [newVar] = await db
-          .insert(schema.productVariants)
+          .insert(schema.varianProduk)
           .values({
-            productId: newProd.id,
-            variantName: v.variantName.trim(),
-            price: Math.max(0, v.price),
-            stockQuantity: Math.max(0, v.initialStock),
-            skuCode: v.skuCode?.trim() || null,
+            produkId: newProd.id,
+            namaVarian: v.variantName.trim(),
+            harga: Math.max(0, v.price),
+            jumlahStok: Math.max(0, v.initialStock),
+            kodeSku: v.skuCode?.trim() || null,
           })
-          .returning({ id: schema.productVariants.id });
+          .returning({ id: schema.varianProduk.id });
 
         if (v.initialStock > 0) {
-          await db.insert(schema.stockEntries).values({
-            variantId: newVar.id,
-            quantityAdded: v.initialStock,
-            supplierOrNotes: "Stok Awal Produk Baru",
+          await db.insert(schema.riwayatStok).values({
+            varianId: newVar.id,
+            jumlahMasuk: v.initialStock,
+            keterangan: "Stok Awal Produk Baru",
           });
         }
       }
@@ -572,34 +571,34 @@ export async function updateProduct(
   if (isDbConfigured) {
     try {
       await db
-        .update(schema.products)
+        .update(schema.produk)
         .set({
-          name: cleanName,
-          category: cleanCategory,
-          unit: cleanUnit,
+          nama: cleanName,
+          kategori: cleanCategory,
+          satuan: cleanUnit,
         })
-        .where(eq(schema.products.id, productId));
+        .where(eq(schema.produk.id, productId));
 
       for (const v of input.variants) {
         if (v.id) {
           // Update existing variant
           await db
-            .update(schema.productVariants)
+            .update(schema.varianProduk)
             .set({
-              variantName: v.variantName.trim(),
-              price: Math.max(0, v.price),
-              stockQuantity: Math.max(0, v.stockQuantity),
-              skuCode: v.skuCode?.trim() || null,
+              namaVarian: v.variantName.trim(),
+              harga: Math.max(0, v.price),
+              jumlahStok: Math.max(0, v.stockQuantity),
+              kodeSku: v.skuCode?.trim() || null,
             })
-            .where(eq(schema.productVariants.id, v.id));
+            .where(eq(schema.varianProduk.id, v.id));
         } else {
           // Insert new variant
-          await db.insert(schema.productVariants).values({
-            productId,
-            variantName: v.variantName.trim(),
-            price: Math.max(0, v.price),
-            stockQuantity: Math.max(0, v.stockQuantity),
-            skuCode: v.skuCode?.trim() || null,
+          await db.insert(schema.varianProduk).values({
+            produkId: productId,
+            namaVarian: v.variantName.trim(),
+            harga: Math.max(0, v.price),
+            jumlahStok: Math.max(0, v.stockQuantity),
+            kodeSku: v.skuCode?.trim() || null,
           });
         }
       }
@@ -679,33 +678,33 @@ export async function processStockAdjustment(
       for (const item of items) {
         const [currVar] = await db
           .select()
-          .from(schema.productVariants)
-          .where(eq(schema.productVariants.id, item.variantId))
+          .from(schema.varianProduk)
+          .where(eq(schema.varianProduk.id, item.variantId))
           .limit(1);
 
         if (!currVar) continue;
 
         let delta = 0;
-        let newStock = currVar.stockQuantity;
+        let newStock = currVar.jumlahStok;
 
         if (item.mode === "TAMBAH") {
           delta = Math.max(0, item.quantity);
-          newStock = currVar.stockQuantity + delta;
+          newStock = currVar.jumlahStok + delta;
         } else {
           newStock = Math.max(0, item.quantity);
-          delta = newStock - currVar.stockQuantity;
+          delta = newStock - currVar.jumlahStok;
         }
 
         if (delta !== 0 || item.mode === "SET_FISIK") {
           await db
-            .update(schema.productVariants)
-            .set({ stockQuantity: newStock })
-            .where(eq(schema.productVariants.id, item.variantId));
+            .update(schema.varianProduk)
+            .set({ jumlahStok: newStock })
+            .where(eq(schema.varianProduk.id, item.variantId));
 
-          await db.insert(schema.stockEntries).values({
-            variantId: item.variantId,
-            quantityAdded: delta,
-            supplierOrNotes:
+          await db.insert(schema.riwayatStok).values({
+            varianId: item.variantId,
+            jumlahMasuk: delta,
+            keterangan:
               supplierOrNotes ||
               (item.mode === "SET_FISIK" ? "Penyesuaian Fisik (Opname)" : "Stok Masuk"),
           });
@@ -824,21 +823,21 @@ export async function getStockEntries(limit = 200): Promise<StockEntryData[]> {
     try {
       const entries = await db
         .select({
-          id: schema.stockEntries.id,
-          variantId: schema.stockEntries.variantId,
-          productName: schema.products.name,
-          variantName: schema.productVariants.variantName,
-          quantityAdded: schema.stockEntries.quantityAdded,
-          supplierOrNotes: schema.stockEntries.supplierOrNotes,
-          createdAt: schema.stockEntries.createdAt,
+          id: schema.riwayatStok.id,
+          variantId: schema.riwayatStok.varianId,
+          productName: schema.produk.nama,
+          variantName: schema.varianProduk.namaVarian,
+          quantityAdded: schema.riwayatStok.jumlahMasuk,
+          supplierOrNotes: schema.riwayatStok.keterangan,
+          createdAt: schema.riwayatStok.dibuatPada,
         })
-        .from(schema.stockEntries)
+        .from(schema.riwayatStok)
         .innerJoin(
-          schema.productVariants,
-          eq(schema.stockEntries.variantId, schema.productVariants.id)
+          schema.varianProduk,
+          eq(schema.riwayatStok.varianId, schema.varianProduk.id)
         )
-        .innerJoin(schema.products, eq(schema.productVariants.productId, schema.products.id))
-        .orderBy(desc(schema.stockEntries.createdAt))
+        .innerJoin(schema.produk, eq(schema.varianProduk.produkId, schema.produk.id))
+        .orderBy(desc(schema.riwayatStok.dibuatPada))
         .limit(limit);
 
       return entries.map((e) => ({
@@ -859,34 +858,34 @@ export async function getTransactions(): Promise<TransactionData[]> {
     try {
       const txs = await db
         .select()
-        .from(schema.transactions)
-        .orderBy(desc(schema.transactions.createdAt));
-      const items = await db.select().from(schema.transactionItems);
+        .from(schema.transaksi)
+        .orderBy(desc(schema.transaksi.dibuatPada));
+      const items = await db.select().from(schema.itemTransaksi);
 
       return txs.map((tx) => ({
         id: tx.id,
-        invoiceNumber: tx.invoiceNumber,
-        customerId: tx.customerId,
-        customerNameSnapshot: tx.customerNameSnapshot,
-        recipientName: tx.recipientName,
-        recipientPhone: tx.recipientPhone,
-        citySnapshot: tx.citySnapshot,
-        fullAddressSnapshot: tx.fullAddressSnapshot,
-        paymentStatus: tx.paymentStatus as "Belum Lunas" | "Lunas",
-        shippingStatus: tx.shippingStatus as "Belum Dikirim" | "Sudah Dikirim",
-        totalAmount: tx.totalAmount,
-        notes: tx.notes,
-        createdAt: tx.createdAt.toISOString(),
+        invoiceNumber: tx.nomorNota,
+        customerId: tx.pelangganId,
+        customerNameSnapshot: tx.namaPenerima,
+        recipientName: tx.namaPenerima,
+        recipientPhone: tx.teleponPenerima,
+        citySnapshot: tx.kotaTujuan,
+        fullAddressSnapshot: tx.alamatTujuan,
+        paymentStatus: tx.statusPembayaran as "Belum Lunas" | "Lunas",
+        shippingStatus: tx.statusPengiriman as "Belum Dikirim" | "Sudah Dikirim",
+        totalAmount: tx.totalTagihan,
+        notes: tx.catatan,
+        createdAt: tx.dibuatPada.toISOString(),
         items: items
-          .filter((it) => it.transactionId === tx.id)
+          .filter((it) => it.transaksiId === tx.id)
           .map((it) => ({
             id: it.id,
-            transactionId: it.transactionId,
-            productId: it.productId || 0,
-            variantId: it.variantId || 0,
-            itemNameSnapshot: it.itemNameSnapshot,
-            unitPrice: it.unitPrice,
-            quantity: it.quantity,
+            transactionId: it.transaksiId,
+            productId: it.produkId || 0,
+            variantId: it.varianId || 0,
+            itemNameSnapshot: it.namaItem,
+            unitPrice: it.hargaSatuan,
+            quantity: it.jumlah,
             subtotal: it.subtotal,
           })),
       }));
@@ -943,9 +942,9 @@ export async function createTransaction(
     // Validate stock from Neon
     for (const item of input.items) {
       const [variant] = await db
-        .select({ stockQuantity: schema.productVariants.stockQuantity })
-        .from(schema.productVariants)
-        .where(eq(schema.productVariants.id, item.variantId))
+        .select({ stockQuantity: schema.varianProduk.jumlahStok })
+        .from(schema.varianProduk)
+        .where(eq(schema.varianProduk.id, item.variantId))
         .limit(1);
 
       const stockAvailable = variant?.stockQuantity ?? 0;
@@ -958,48 +957,80 @@ export async function createTransaction(
     }
 
     try {
+      // Upsert / Link Pelanggan
+      let linkedCustomerId: number | null = null;
+      const cleanCustomerName = input.recipientName.trim();
+      if (cleanCustomerName) {
+        const [existingCust] = await db
+          .select({ id: schema.pelanggan.id })
+          .from(schema.pelanggan)
+          .where(sql`LOWER(TRIM(${schema.pelanggan.nama})) = LOWER(TRIM(${cleanCustomerName}))`)
+          .limit(1);
+
+        if (existingCust) {
+          linkedCustomerId = existingCust.id;
+        } else {
+          const isInstansi =
+            cleanCustomerName.toLowerCase().includes("ponpes") ||
+            cleanCustomerName.toLowerCase().includes("pesantren") ||
+            cleanCustomerName.toLowerCase().includes("yayasan") ||
+            cleanCustomerName.toLowerCase().includes("sekolah");
+          const [newCust] = await db
+            .insert(schema.pelanggan)
+            .values({
+              nama: cleanCustomerName,
+              noTelepon: input.recipientPhone,
+              kota: input.city,
+              alamatLengkap: input.fullAddress || null,
+              tipePelanggan: isInstansi ? "Instansi / Pesantren" : "Perorangan / Wali Santri",
+            })
+            .returning({ id: schema.pelanggan.id });
+          linkedCustomerId = newCust.id;
+        }
+      }
+
       // Count existing transactions to generate invoice number
       const [{ count }] = await db
         .select({ count: sql<number>`count(*)` })
-        .from(schema.transactions);
+        .from(schema.transaksi);
       const seq = Number(count) + 1;
       const invoiceNumber = `KP-${yearMonth}-${seq.toString().padStart(4, "0")}`;
 
       const [insertedTx] = await db
-        .insert(schema.transactions)
+        .insert(schema.transaksi)
         .values({
-          invoiceNumber,
-          customerNameSnapshot: input.recipientName,
-          recipientName: input.recipientName,
-          recipientPhone: input.recipientPhone,
-          citySnapshot: input.city,
-          fullAddressSnapshot: input.fullAddress || null,
-          paymentStatus: input.paymentStatus,
-          shippingStatus: input.shippingStatus,
-          totalAmount,
-          notes: input.notes || null,
+          nomorNota: invoiceNumber,
+          pelangganId: linkedCustomerId,
+          namaPenerima: input.recipientName,
+          teleponPenerima: input.recipientPhone,
+          kotaTujuan: input.city,
+          alamatTujuan: input.fullAddress || null,
+          statusPembayaran: input.paymentStatus,
+          statusPengiriman: input.shippingStatus,
+          totalTagihan: totalAmount,
+          catatan: input.notes || null,
         })
         .returning();
 
       const neonTxId = insertedTx.id;
 
       for (const item of input.items) {
-        await db.insert(schema.transactionItems).values({
-          transactionId: insertedTx.id,
-          productId: item.productId,
-          variantId: item.variantId,
-          itemNameSnapshot: item.itemName,
-          unitPrice: item.unitPrice,
-          quantity: item.quantity,
+        await db.insert(schema.itemTransaksi).values({
+          transaksiId: insertedTx.id,
+          produkId: item.productId,
+          varianId: item.variantId,
+          namaItem: item.itemName,
+          hargaSatuan: item.unitPrice,
+          jumlah: item.quantity,
           subtotal: item.unitPrice * item.quantity,
         });
 
         await db
-          .update(schema.productVariants)
+          .update(schema.varianProduk)
           .set({
-            stockQuantity: sql`${schema.productVariants.stockQuantity} - ${item.quantity}`,
+            jumlahStok: sql`${schema.varianProduk.jumlahStok} - ${item.quantity}`,
           })
-          .where(eq(schema.productVariants.id, item.variantId));
+          .where(eq(schema.varianProduk.id, item.variantId));
       }
 
       return { success: true, invoiceNumber, transactionId: neonTxId };
@@ -1088,10 +1119,13 @@ export async function updateTransactionStatus(
 
   if (isDbConfigured) {
     try {
+      const dbUpdates: any = {};
+      if (updates.paymentStatus) dbUpdates.statusPembayaran = updates.paymentStatus;
+      if (updates.shippingStatus) dbUpdates.statusPengiriman = updates.shippingStatus;
       await db
-        .update(schema.transactions)
-        .set(updates)
-        .where(eq(schema.transactions.id, transactionId));
+        .update(schema.transaksi)
+        .set(dbUpdates)
+        .where(eq(schema.transaksi.id, transactionId));
     } catch (e) {
       console.warn("Neon update transaction status failed:", e);
     }
@@ -1135,13 +1169,13 @@ export async function deleteTransaction(transactionId: number): Promise<{ succes
     try {
       for (const item of tx.items) {
         await db
-          .update(schema.productVariants)
+          .update(schema.varianProduk)
           .set({
-            stockQuantity: sql`${schema.productVariants.stockQuantity} + ${item.quantity}`,
+            jumlahStok: sql`${schema.varianProduk.jumlahStok} + ${item.quantity}`,
           })
-          .where(eq(schema.productVariants.id, item.variantId));
+          .where(eq(schema.varianProduk.id, item.variantId));
       }
-      await db.delete(schema.transactions).where(eq(schema.transactions.id, transactionId));
+      await db.delete(schema.transaksi).where(eq(schema.transaksi.id, transactionId));
     } catch (e: any) {
       console.warn("Neon delete transaction rollback failed:", e);
     }
@@ -1149,6 +1183,54 @@ export async function deleteTransaction(transactionId: number): Promise<{ succes
 
   return { success: true };
 }
+
+export interface PelangganData {
+  id: number;
+  tipePelanggan: string;
+  nama: string;
+  noTelepon: string;
+  kota: string;
+  provinsi?: string | null;
+  alamatLengkap?: string | null;
+  dibuatPada: string;
+}
+
+export async function getPelanggan(): Promise<PelangganData[]> {
+  if (isDbConfigured) {
+    try {
+      const records = await db
+        .select()
+        .from(schema.pelanggan)
+        .orderBy(desc(schema.pelanggan.dibuatPada));
+      return records.map((p) => ({
+        id: p.id,
+        tipePelanggan: p.tipePelanggan,
+        nama: p.nama,
+        noTelepon: p.noTelepon,
+        kota: p.kota,
+        provinsi: p.provinsi,
+        alamatLengkap: p.alamatLengkap,
+        dibuatPada: p.dibuatPada.toISOString(),
+      }));
+    } catch (e) {
+      console.warn("Neon getPelanggan failed:", e);
+    }
+  }
+
+  const store = readLocalStore();
+  return store.customers.map((c) => ({
+    id: c.id,
+    tipePelanggan: c.customerType,
+    nama: c.contactPerson,
+    noTelepon: c.phoneNumber,
+    kota: c.city,
+    provinsi: c.province,
+    alamatLengkap: c.fullAddress,
+    dibuatPada: new Date().toISOString(),
+  }));
+}
+
+export const getCustomers = getPelanggan;
 
 export async function getRegionalReport() {
   const txs = await getTransactions();

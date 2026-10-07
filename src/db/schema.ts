@@ -1,111 +1,126 @@
-import { pgTable, text, varchar, integer, boolean, timestamp, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, serial } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
-export const products = pgTable("products", {
+// 1. Tabel Produk
+export const produk = pgTable("produk", {
   id: serial("id").primaryKey(),
-  name: varchar("name", { length: 255 }).notNull(),
-  category: varchar("category", { length: 50 }).notNull(), // Seragam, Buku, Aksesoris
-  hasVariants: boolean("has_variants").default(true).notNull(),
-  unit: varchar("unit", { length: 20 }).default("Pcs").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  nama: varchar("nama", { length: 255 }).notNull(),
+  kategori: varchar("kategori", { length: 50 }).notNull(), // Seragam, Buku, Aksesoris
+  satuan: varchar("satuan", { length: 20 }).default("Pcs").notNull(),
+  dibuatPada: timestamp("dibuat_pada").defaultNow().notNull(),
 });
 
-export const productVariants = pgTable("product_variants", {
+// 2. Tabel Varian Produk (Ukuran, Jilid, dll)
+export const varianProduk = pgTable("varian_produk", {
   id: serial("id").primaryKey(),
-  productId: integer("product_id").references(() => products.id, { onDelete: "cascade" }).notNull(),
-  variantName: varchar("variant_name", { length: 100 }).notNull(),
-  price: integer("price").notNull(),
-  stockQuantity: integer("stock_quantity").default(0).notNull(),
-  skuCode: varchar("sku_code", { length: 50 }),
+  produkId: integer("produk_id").references(() => produk.id, { onDelete: "cascade" }).notNull(),
+  namaVarian: varchar("nama_varian", { length: 100 }).notNull(),
+  harga: integer("harga").notNull(),
+  jumlahStok: integer("jumlah_stok").default(0).notNull(),
+  kodeSku: varchar("kode_sku", { length: 50 }),
 });
 
-export const customers = pgTable("customers", {
+// 3. Tabel Pelanggan (Master Data Pembeli / Pesantren)
+export const pelanggan = pgTable("pelanggan", {
   id: serial("id").primaryKey(),
-  customerType: varchar("customer_type", { length: 30 }).default("Instansi").notNull(), // Instansi / Pesantren, Perorangan
-  institutionName: varchar("institution_name", { length: 255 }),
-  contactPerson: varchar("contact_person", { length: 150 }).notNull(),
-  phoneNumber: varchar("phone_number", { length: 50 }).notNull(),
-  city: varchar("city", { length: 100 }).notNull(),
-  province: varchar("province", { length: 100 }),
-  fullAddress: text("full_address"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  tipePelanggan: varchar("tipe_pelanggan", { length: 50 }).default("Perorangan / Wali Santri").notNull(),
+  nama: varchar("nama", { length: 150 }).notNull(),
+  noTelepon: varchar("no_telepon", { length: 50 }).notNull(),
+  kota: varchar("kota", { length: 100 }).notNull(),
+  provinsi: varchar("provinsi", { length: 100 }),
+  alamatLengkap: text("alamat_lengkap"),
+  dibuatPada: timestamp("dibuat_pada").defaultNow().notNull(),
 });
 
-export const transactions = pgTable("transactions", {
+// 4. Tabel Transaksi (Nota Penjualan Kasir)
+export const transaksi = pgTable("transaksi", {
   id: serial("id").primaryKey(),
-  invoiceNumber: varchar("invoice_number", { length: 50 }).unique().notNull(),
-  customerId: integer("customer_id").references(() => customers.id),
-  customerNameSnapshot: varchar("customer_name_snapshot", { length: 255 }).notNull(),
-  recipientName: varchar("recipient_name", { length: 150 }).notNull(),
-  recipientPhone: varchar("recipient_phone", { length: 50 }).notNull(),
-  citySnapshot: varchar("city_snapshot", { length: 100 }).notNull(),
-  fullAddressSnapshot: text("full_address_snapshot"),
-  paymentStatus: varchar("payment_status", { length: 30 }).default("Belum Lunas").notNull(), // Belum Lunas, Lunas
-  shippingStatus: varchar("shipping_status", { length: 30 }).default("Belum Dikirim").notNull(), // Belum Dikirim, Sudah Dikirim
-  totalAmount: integer("total_amount").notNull(),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  nomorNota: varchar("nomor_nota", { length: 50 }).unique().notNull(),
+  pelangganId: integer("pelanggan_id").references(() => pelanggan.id, { onDelete: "set null" }),
+  namaPenerima: varchar("nama_penerima", { length: 150 }).notNull(),
+  teleponPenerima: varchar("telepon_penerima", { length: 50 }).notNull(),
+  kotaTujuan: varchar("kota_tujuan", { length: 100 }).notNull(),
+  alamatTujuan: text("alamat_tujuan"),
+  statusPembayaran: varchar("status_pembayaran", { length: 30 }).default("Belum Lunas").notNull(), // Belum Lunas, Lunas
+  statusPengiriman: varchar("status_pengiriman", { length: 30 }).default("Belum Dikirim").notNull(), // Belum Dikirim, Sudah Dikirim
+  totalTagihan: integer("total_tagihan").notNull(),
+  catatan: text("catatan"),
+  dibuatPada: timestamp("dibuat_pada").defaultNow().notNull(),
 });
 
-export const transactionItems = pgTable("transaction_items", {
+// 5. Tabel Item Transaksi (Rincian Barang per Nota)
+export const itemTransaksi = pgTable("item_transaksi", {
   id: serial("id").primaryKey(),
-  transactionId: integer("transaction_id").references(() => transactions.id, { onDelete: "cascade" }).notNull(),
-  productId: integer("product_id").references(() => products.id),
-  variantId: integer("variant_id").references(() => productVariants.id),
-  itemNameSnapshot: varchar("item_name_snapshot", { length: 255 }).notNull(),
-  unitPrice: integer("unit_price").notNull(),
-  quantity: integer("quantity").notNull(),
+  transaksiId: integer("transaksi_id").references(() => transaksi.id, { onDelete: "cascade" }).notNull(),
+  produkId: integer("produk_id").references(() => produk.id),
+  varianId: integer("varian_id").references(() => varianProduk.id),
+  namaItem: varchar("nama_item", { length: 255 }).notNull(),
+  hargaSatuan: integer("harga_satuan").notNull(),
+  jumlah: integer("jumlah").notNull(),
   subtotal: integer("subtotal").notNull(),
 });
 
-export const stockEntries = pgTable("stock_entries", {
+// 6. Tabel Riwayat Stok (Penerimaan Stok Masuk Gudang)
+export const riwayatStok = pgTable("riwayat_stok", {
   id: serial("id").primaryKey(),
-  variantId: integer("variant_id").references(() => productVariants.id, { onDelete: "cascade" }).notNull(),
-  quantityAdded: integer("quantity_added").notNull(),
-  supplierOrNotes: text("supplier_or_notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  varianId: integer("varian_id").references(() => varianProduk.id, { onDelete: "cascade" }).notNull(),
+  jumlahMasuk: integer("jumlah_masuk").notNull(),
+  keterangan: text("keterangan"), // Berisi sumber atau nomor Berita Acara Penerimaan (BM-XXXX)
+  dibuatPada: timestamp("dibuat_pada").defaultNow().notNull(),
 });
 
-// Relations
-export const productsRelations = relations(products, ({ many }) => ({
-  variants: many(productVariants),
+// Relasi Antar Tabel
+export const produkRelations = relations(produk, ({ many }) => ({
+  varian: many(varianProduk),
 }));
 
-export const productVariantsRelations = relations(productVariants, ({ one, many }) => ({
-  product: one(products, {
-    fields: [productVariants.productId],
-    references: [products.id],
+export const varianProdukRelations = relations(varianProduk, ({ one, many }) => ({
+  produk: one(produk, {
+    fields: [varianProduk.produkId],
+    references: [produk.id],
   }),
-  stockEntries: many(stockEntries),
-  transactionItems: many(transactionItems),
+  riwayatStok: many(riwayatStok),
+  itemTransaksi: many(itemTransaksi),
 }));
 
-export const transactionsRelations = relations(transactions, ({ one, many }) => ({
-  customer: one(customers, {
-    fields: [transactions.customerId],
-    references: [customers.id],
-  }),
-  items: many(transactionItems),
+export const pelangganRelations = relations(pelanggan, ({ many }) => ({
+  transaksi: many(transaksi),
 }));
 
-export const transactionItemsRelations = relations(transactionItems, ({ one }) => ({
-  transaction: one(transactions, {
-    fields: [transactionItems.transactionId],
-    references: [transactions.id],
+export const transaksiRelations = relations(transaksi, ({ one, many }) => ({
+  pelanggan: one(pelanggan, {
+    fields: [transaksi.pelangganId],
+    references: [pelanggan.id],
   }),
-  product: one(products, {
-    fields: [transactionItems.productId],
-    references: [products.id],
+  items: many(itemTransaksi),
+}));
+
+export const itemTransaksiRelations = relations(itemTransaksi, ({ one }) => ({
+  transaksi: one(transaksi, {
+    fields: [itemTransaksi.transaksiId],
+    references: [transaksi.id],
   }),
-  variant: one(productVariants, {
-    fields: [transactionItems.variantId],
-    references: [productVariants.id],
+  produk: one(produk, {
+    fields: [itemTransaksi.produkId],
+    references: [produk.id],
+  }),
+  varian: one(varianProduk, {
+    fields: [itemTransaksi.varianId],
+    references: [varianProduk.id],
   }),
 }));
 
-export const stockEntriesRelations = relations(stockEntries, ({ one }) => ({
-  variant: one(productVariants, {
-    fields: [stockEntries.variantId],
-    references: [productVariants.id],
+export const riwayatStokRelations = relations(riwayatStok, ({ one }) => ({
+  varian: one(varianProduk, {
+    fields: [riwayatStok.varianId],
+    references: [varianProduk.id],
   }),
 }));
+
+// Backward compatibility alias (agar modul lain tetap aman)
+export const products = produk;
+export const productVariants = varianProduk;
+export const customers = pelanggan;
+export const transactions = transaksi;
+export const transactionItems = itemTransaksi;
+export const stockEntries = riwayatStok;
