@@ -2,11 +2,11 @@ import { redirect } from "next/navigation";
 import { isAuthenticated } from "@/lib/auth";
 import { getProductsWithVariants } from "@/lib/data-service";
 import AdminShell from "@/components/AdminShell";
-import ProdukManagementClient from "./ProdukManagementClient";
+import StokMasukClient from "./StokMasukClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProdukPage() {
+export default async function StokMasukPage() {
   const auth = await isAuthenticated();
   if (!auth) {
     redirect("/login");
@@ -16,7 +16,7 @@ export default async function ProdukPage() {
 
   return (
     <AdminShell>
-      <ProdukManagementClient products={products} />
+      <StokMasukClient products={products} />
     </AdminShell>
   );
 }

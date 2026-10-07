@@ -4,6 +4,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "MyKopsyah - Sistem Stok & Penjualan Koperasi Syariah",
   description: "Aplikasi pengelolaan stok barang dan pencatatan transaksi penjualan Koperasi Syariah.",
+  icons: {
+    icon: "/logo-kopsyah.png",
+    shortcut: "/logo-kopsyah.png",
+    apple: "/logo-kopsyah.png",
+  },
 };
 
 export default function RootLayout({

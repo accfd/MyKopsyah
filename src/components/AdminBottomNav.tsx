@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ShoppingCart, Package, ReceiptText, MapPin } from "lucide-react";
+import { LayoutDashboard, ShoppingCart, Package, ReceiptText, MapPin, Settings } from "lucide-react";
 
 export default function AdminBottomNav() {
   const pathname = usePathname();
@@ -10,9 +10,9 @@ export default function AdminBottomNav() {
   const navItems = [
     { label: "Dasbor", href: "/dashboard", icon: LayoutDashboard },
     { label: "Stok Barang", href: "/produk", icon: Package },
-    { label: "Kasir (+)", href: "/transaksi/baru", icon: ShoppingCart, highlight: true },
-    { label: "Nota Penjualan", href: "/transaksi", icon: ReceiptText },
-    { label: "Wilayah", href: "/laporan/wilayah", icon: MapPin },
+    { label: "Kasir", href: "/transaksi/baru", icon: ShoppingCart, highlight: true },
+    { label: "Nota", href: "/transaksi", icon: ReceiptText },
+    { label: "Pengaturan", href: "/pengaturan", icon: Settings },
   ];
 
   return (
@@ -32,7 +32,7 @@ export default function AdminBottomNav() {
                 <div className="w-14 h-14 rounded-full bg-emerald-600 group-hover:bg-emerald-700 text-white flex items-center justify-center shadow-lg ring-4 ring-white transition-all transform active:scale-95">
                   <Icon className="w-7 h-7" />
                 </div>
-                <span className="text-[11px] font-bold text-emerald-800 mt-1">Kasir (+)</span>
+                <span className="text-[11px] font-bold text-emerald-800 mt-1">Kasir</span>
               </Link>
             );
           }

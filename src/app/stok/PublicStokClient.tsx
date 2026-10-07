@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ProductData } from "@/lib/data-service";
 import { formatRupiah } from "@/lib/format";
 import { Search, Store, MessageCircle, CheckCircle2, AlertCircle, FileText, Download, ChevronDown, ChevronUp } from "lucide-react";
@@ -11,7 +12,7 @@ export default function PublicStokClient({ products }: { products: ProductData[]
   const [searchQuery, setSearchQuery] = useState("");
   const [showPdf, setShowPdf] = useState(false);
 
-  const categories = ["Semua", "Seragam", "Buku", "Aksesoris", "Kain"];
+  const categories = ["Semua", "Seragam", "Buku", "Aksesoris"];
 
   const filteredProducts = products
     .filter((p) => selectedCategory === "Semua" || p.category === selectedCategory)
@@ -34,9 +35,15 @@ export default function PublicStokClient({ products }: { products: ProductData[]
       {/* Top Header */}
       <header className="sticky top-0 z-30 bg-emerald-800 text-white shadow-md">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center shadow-inner">
-              <Store className="w-6 h-6 text-white" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white p-1 flex items-center justify-center shadow-md overflow-hidden shrink-0 border border-emerald-700/50">
+              <Image
+                src="/logo-kopsyah.png"
+                alt="Logo Koperasi Indonesia"
+                width={40}
+                height={40}
+                className="w-full h-full object-contain"
+              />
             </div>
             <div>
               <h1 className="text-lg font-black tracking-tight text-white leading-tight">
@@ -95,34 +102,38 @@ export default function PublicStokClient({ products }: { products: ProductData[]
 
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
-        {/* Search & Categories */}
-        <div className="space-y-3">
-          <div className="relative">
+        {/* Filter Kategori & Pencarian */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Category Tabs - 1 Baris Penuh di PC maupun HP */}
+          <div className="w-full sm:w-auto overflow-x-auto no-scrollbar">
+            <div className="grid grid-cols-4 gap-1 p-1 bg-slate-200/70 rounded-2xl border border-slate-300/80 min-w-[280px] sm:min-w-[360px]">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`py-2 px-2 text-xs font-bold rounded-xl transition-all text-center truncate ${
+                    selectedCategory === cat
+                      ? "bg-white text-emerald-800 shadow-sm font-extrabold"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Search */}
+          <div className="relative w-full sm:w-72">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Ketik nama barang, ukuran, atau kelas (misal: Baju santri no 5)..."
-              className="w-full pl-11 pr-4 py-3.5 bg-white border border-slate-300 rounded-2xl text-sm focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 shadow-sm text-slate-900"
+              placeholder="Cari nama barang atau ukuran..."
+              className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-600 shadow-sm"
             />
-            <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          </div>
-
-          {/* Category Chips */}
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-all ${
-                  selectedCategory === cat
-                    ? "bg-emerald-700 text-white shadow-sm"
-                    : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           </div>
         </div>
 

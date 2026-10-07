@@ -360,7 +360,466 @@ export async function addStockEntry(
   return { success: true };
 }
 
-export async function getStockEntries(limit = 20): Promise<StockEntryData[]> {
+export interface BatchStockItem {
+  variantId: number;
+  quantityAdded: number;
+}
+
+export async function addBatchStockEntries(
+  items: BatchStockItem[],
+  supplierOrNotes?: string
+): Promise<{ success: boolean; error?: string }> {
+  const validItems = items.filter((it) => it.quantityAdded > 0);
+  if (validItems.length === 0) {
+    return { success: false, error: "Jumlah barang masuk harus lebih dari 0" };
+  }
+
+  if (isDbConfigured) {
+    try {
+      for (const it of validItems) {
+        await db.insert(schema.stockEntries).values({
+          variantId: it.variantId,
+          quantityAdded: it.quantityAdded,
+          supplierOrNotes: supplierOrNotes || null,
+        });
+
+        await db
+          .update(schema.productVariants)
+          .set({
+            stockQuantity: sql`${schema.productVariants.stockQuantity} + ${it.quantityAdded}`,
+          })
+          .where(eq(schema.productVariants.id, it.variantId));
+      }
+      return { success: true };
+    } catch (e: any) {
+      console.warn("Neon batch stock entry failed:", e);
+      return { success: false, error: e.message };
+    }
+  }
+
+  const store = readLocalStore();
+  for (const it of validItems) {
+    let foundVar: VariantData | null = null;
+    let foundProd: ProductData | null = null;
+
+    for (const p of store.products) {
+      const v = p.variants.find((item) => item.id === it.variantId);
+      if (v) {
+        foundVar = v;
+        foundProd = p;
+        break;
+      }
+    }
+
+    if (foundVar && foundProd) {
+      foundVar.stockQuantity += it.quantityAdded;
+      store.stockEntries.unshift({
+        id: store.nextIds.stockEntry++,
+        variantId: it.variantId,
+        productName: foundProd.name,
+        variantName: foundVar.variantName,
+        quantityAdded: it.quantityAdded,
+        supplierOrNotes: supplierOrNotes || "Barang Masuk",
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  writeLocalStore(store);
+  return { success: true };
+}
+
+export interface CreateProductInput {
+  name: string;
+  category: "Seragam" | "Buku" | "Aksesoris";
+  unit: string;
+  variants: {
+    variantName: string;
+    price: number;
+    initialStock: number;
+    skuCode?: string;
+  }[];
+}
+
+export async function createProduct(
+  input: CreateProductInput
+): Promise<{ success: boolean; productId?: number; error?: string }> {
+  if (!input.name || input.name.trim().length === 0) {
+    return { success: false, error: "Nama produk wajib diisi" };
+  }
+  if (!input.variants || input.variants.length === 0) {
+    return { success: false, error: "Minimal harus ada 1 varian produk" };
+  }
+
+  const cleanName = input.name.trim();
+  const cleanCategory = input.category;
+  const cleanUnit = input.unit.trim() || "Pcs";
+
+  if (isDbConfigured) {
+    try {
+      const [newProd] = await db
+        .insert(schema.products)
+        .values({
+          name: cleanName,
+          category: cleanCategory,
+          hasVariants: true,
+          unit: cleanUnit,
+        })
+        .returning({ id: schema.products.id });
+
+      for (const v of input.variants) {
+        const [newVar] = await db
+          .insert(schema.productVariants)
+          .values({
+            productId: newProd.id,
+            variantName: v.variantName.trim(),
+            price: Math.max(0, v.price),
+            stockQuantity: Math.max(0, v.initialStock),
+            skuCode: v.skuCode?.trim() || null,
+          })
+          .returning({ id: schema.productVariants.id });
+
+        if (v.initialStock > 0) {
+          await db.insert(schema.stockEntries).values({
+            variantId: newVar.id,
+            quantityAdded: v.initialStock,
+            supplierOrNotes: "Stok Awal Produk Baru",
+          });
+        }
+      }
+
+      return { success: true, productId: newProd.id };
+    } catch (e: any) {
+      console.warn("Neon create product failed:", e);
+      return { success: false, error: e.message };
+    }
+  }
+
+  const store = readLocalStore();
+  const newProdId = store.nextIds.product++;
+  const createdVariants: VariantData[] = [];
+
+  for (const v of input.variants) {
+    const newVarId = store.nextIds.variant++;
+    createdVariants.push({
+      id: newVarId,
+      productId: newProdId,
+      variantName: v.variantName.trim(),
+      price: Math.max(0, v.price),
+      stockQuantity: Math.max(0, v.initialStock),
+      skuCode: v.skuCode?.trim() || undefined,
+    });
+
+    if (v.initialStock > 0) {
+      store.stockEntries.unshift({
+        id: store.nextIds.stockEntry++,
+        variantId: newVarId,
+        productName: cleanName,
+        variantName: v.variantName.trim(),
+        quantityAdded: v.initialStock,
+        supplierOrNotes: "Stok Awal Produk Baru",
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  store.products.push({
+    id: newProdId,
+    name: cleanName,
+    category: cleanCategory,
+    hasVariants: true,
+    unit: cleanUnit,
+    variants: createdVariants,
+  });
+
+  writeLocalStore(store);
+  return { success: true, productId: newProdId };
+}
+
+export async function getProductById(productId: number): Promise<ProductData | null> {
+  const products = await getProductsWithVariants();
+  return products.find((p) => p.id === productId) || null;
+}
+
+export interface UpdateProductInput {
+  name: string;
+  category: "Seragam" | "Buku" | "Aksesoris";
+  unit: string;
+  variants: Array<{
+    id?: number;
+    variantName: string;
+    price: number;
+    stockQuantity: number;
+    skuCode?: string;
+  }>;
+}
+
+export async function updateProduct(
+  productId: number,
+  input: UpdateProductInput
+): Promise<{ success: boolean; error?: string }> {
+  if (!input.name || input.name.trim().length === 0) {
+    return { success: false, error: "Nama produk wajib diisi" };
+  }
+  if (!input.variants || input.variants.length === 0) {
+    return { success: false, error: "Minimal harus ada 1 varian produk" };
+  }
+
+  const cleanName = input.name.trim();
+  const cleanCategory = input.category;
+  const cleanUnit = input.unit.trim() || "Pcs";
+
+  if (isDbConfigured) {
+    try {
+      await db
+        .update(schema.products)
+        .set({
+          name: cleanName,
+          category: cleanCategory,
+          unit: cleanUnit,
+        })
+        .where(eq(schema.products.id, productId));
+
+      for (const v of input.variants) {
+        if (v.id) {
+          // Update existing variant
+          await db
+            .update(schema.productVariants)
+            .set({
+              variantName: v.variantName.trim(),
+              price: Math.max(0, v.price),
+              stockQuantity: Math.max(0, v.stockQuantity),
+              skuCode: v.skuCode?.trim() || null,
+            })
+            .where(eq(schema.productVariants.id, v.id));
+        } else {
+          // Insert new variant
+          await db.insert(schema.productVariants).values({
+            productId,
+            variantName: v.variantName.trim(),
+            price: Math.max(0, v.price),
+            stockQuantity: Math.max(0, v.stockQuantity),
+            skuCode: v.skuCode?.trim() || null,
+          });
+        }
+      }
+      return { success: true };
+    } catch (e: any) {
+      console.warn("Neon update product failed:", e);
+      return { success: false, error: e.message };
+    }
+  }
+
+  const store = readLocalStore();
+  const prodIndex = store.products.findIndex((p) => p.id === productId);
+  if (prodIndex === -1) {
+    return { success: false, error: "Produk tidak ditemukan" };
+  }
+
+  const targetProd = store.products[prodIndex];
+  targetProd.name = cleanName;
+  targetProd.category = cleanCategory;
+  targetProd.unit = cleanUnit;
+
+  const updatedVariants: VariantData[] = [];
+  for (const v of input.variants) {
+    if (v.id) {
+      const existing = targetProd.variants.find((item) => item.id === v.id);
+      if (existing) {
+        existing.variantName = v.variantName.trim();
+        existing.price = Math.max(0, v.price);
+        existing.stockQuantity = Math.max(0, v.stockQuantity);
+        existing.skuCode = v.skuCode?.trim() || undefined;
+        updatedVariants.push(existing);
+      } else {
+        const newId = store.nextIds.variant++;
+        updatedVariants.push({
+          id: newId,
+          productId,
+          variantName: v.variantName.trim(),
+          price: Math.max(0, v.price),
+          stockQuantity: Math.max(0, v.stockQuantity),
+          skuCode: v.skuCode?.trim() || undefined,
+        });
+      }
+    } else {
+      const newId = store.nextIds.variant++;
+      updatedVariants.push({
+        id: newId,
+        productId,
+        variantName: v.variantName.trim(),
+        price: Math.max(0, v.price),
+        stockQuantity: Math.max(0, v.stockQuantity),
+        skuCode: v.skuCode?.trim() || undefined,
+      });
+    }
+  }
+
+  targetProd.variants = updatedVariants;
+  writeLocalStore(store);
+  return { success: true };
+}
+
+export interface StockAdjustmentItem {
+  variantId: number;
+  mode: "TAMBAH" | "SET_FISIK";
+  quantity: number; // TAMBAH: delta to add (> 0), SET_FISIK: target final stock (>= 0)
+}
+
+export async function processStockAdjustment(
+  items: StockAdjustmentItem[],
+  supplierOrNotes?: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!items || items.length === 0) {
+    return { success: false, error: "Pilih minimal 1 varian untuk diperbarui." };
+  }
+
+  if (isDbConfigured) {
+    try {
+      for (const item of items) {
+        const [currVar] = await db
+          .select()
+          .from(schema.productVariants)
+          .where(eq(schema.productVariants.id, item.variantId))
+          .limit(1);
+
+        if (!currVar) continue;
+
+        let delta = 0;
+        let newStock = currVar.stockQuantity;
+
+        if (item.mode === "TAMBAH") {
+          delta = Math.max(0, item.quantity);
+          newStock = currVar.stockQuantity + delta;
+        } else {
+          newStock = Math.max(0, item.quantity);
+          delta = newStock - currVar.stockQuantity;
+        }
+
+        if (delta !== 0 || item.mode === "SET_FISIK") {
+          await db
+            .update(schema.productVariants)
+            .set({ stockQuantity: newStock })
+            .where(eq(schema.productVariants.id, item.variantId));
+
+          await db.insert(schema.stockEntries).values({
+            variantId: item.variantId,
+            quantityAdded: delta,
+            supplierOrNotes:
+              supplierOrNotes ||
+              (item.mode === "SET_FISIK" ? "Penyesuaian Fisik (Opname)" : "Stok Masuk"),
+          });
+        }
+      }
+      return { success: true };
+    } catch (e: any) {
+      console.warn("Neon process stock adjustment failed:", e);
+      return { success: false, error: e.message };
+    }
+  }
+
+  const store = readLocalStore();
+  for (const item of items) {
+    let foundVar: VariantData | null = null;
+    let foundProd: ProductData | null = null;
+
+    for (const p of store.products) {
+      const v = p.variants.find((vIt) => vIt.id === item.variantId);
+      if (v) {
+        foundVar = v;
+        foundProd = p;
+        break;
+      }
+    }
+
+    if (!foundVar || !foundProd) continue;
+
+    let delta = 0;
+    if (item.mode === "TAMBAH") {
+      delta = Math.max(0, item.quantity);
+      foundVar.stockQuantity += delta;
+    } else {
+      const targetStock = Math.max(0, item.quantity);
+      delta = targetStock - foundVar.stockQuantity;
+      foundVar.stockQuantity = targetStock;
+    }
+
+    if (delta !== 0 || item.mode === "SET_FISIK") {
+      store.stockEntries.unshift({
+        id: store.nextIds.stockEntry++,
+        variantId: item.variantId,
+        productName: foundProd.name,
+        variantName: foundVar.variantName,
+        quantityAdded: delta,
+        supplierOrNotes:
+          supplierOrNotes ||
+          (item.mode === "SET_FISIK" ? "Penyesuaian Fisik (Opname)" : "Stok Masuk"),
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  writeLocalStore(store);
+  return { success: true };
+}
+
+export interface StockBatchData {
+  batchId: string;
+  batchKey: string;
+  createdAt: string;
+  supplierOrNotes: string;
+  totalQuantity: number;
+  totalVariants: number;
+  entries: StockEntryData[];
+}
+
+export function groupStockEntriesIntoBatches(entries: StockEntryData[]): StockBatchData[] {
+  const map = new Map<string, StockEntryData[]>();
+
+  for (const entry of entries) {
+    const timeKey = entry.createdAt ? entry.createdAt.slice(0, 16) : "unknown";
+    const notesKey = (entry.supplierOrNotes || "Barang Masuk").trim().toLowerCase();
+    const groupKey = `${timeKey}_${notesKey}`;
+
+    if (!map.has(groupKey)) {
+      map.set(groupKey, []);
+    }
+    map.get(groupKey)!.push(entry);
+  }
+
+  const batches: StockBatchData[] = [];
+  let index = 1;
+
+  for (const [key, groupEntries] of map.entries()) {
+    const first = groupEntries[0];
+    const d = new Date(first.createdAt);
+    const yy = isNaN(d.getTime()) ? "26" : String(d.getFullYear()).slice(-2);
+    const mm = isNaN(d.getTime()) ? "07" : String(d.getMonth() + 1).padStart(2, "0");
+    const idNum = String(index).padStart(4, "0");
+    const batchId = `BM-${yy}${mm}-${idNum}`;
+
+    batches.push({
+      batchId,
+      batchKey: encodeURIComponent(key),
+      createdAt: first.createdAt,
+      supplierOrNotes: first.supplierOrNotes || "Penerimaan Barang",
+      totalQuantity: groupEntries.reduce((sum, it) => sum + it.quantityAdded, 0),
+      totalVariants: groupEntries.length,
+      entries: groupEntries,
+    });
+    index++;
+  }
+
+  return batches;
+}
+
+export async function getStockBatchById(batchId: string): Promise<StockBatchData | null> {
+  const entries = await getStockEntries(500);
+  const batches = groupStockEntriesIntoBatches(entries);
+  return batches.find((b) => b.batchId.toUpperCase() === batchId.toUpperCase()) || null;
+}
+
+export async function getStockEntries(limit = 200): Promise<StockEntryData[]> {
   if (isDbConfigured) {
     try {
       const entries = await db
@@ -474,17 +933,91 @@ export async function createTransaction(
     .toString()
     .padStart(2, "0")}`;
 
+  let totalAmount = 0;
+  for (const it of input.items) {
+    totalAmount += it.unitPrice * it.quantity;
+  }
+
+  // --- PATH A: Neon DB configured → use Neon as source of truth ---
+  if (isDbConfigured) {
+    // Validate stock from Neon
+    for (const item of input.items) {
+      const [variant] = await db
+        .select({ stockQuantity: schema.productVariants.stockQuantity })
+        .from(schema.productVariants)
+        .where(eq(schema.productVariants.id, item.variantId))
+        .limit(1);
+
+      const stockAvailable = variant?.stockQuantity ?? 0;
+      if (item.quantity > stockAvailable) {
+        return {
+          success: false,
+          error: `Stok untuk "${item.itemName}" tidak mencukupi (sisa ${stockAvailable}, diminta ${item.quantity})`,
+        };
+      }
+    }
+
+    try {
+      // Count existing transactions to generate invoice number
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(schema.transactions);
+      const seq = Number(count) + 1;
+      const invoiceNumber = `KP-${yearMonth}-${seq.toString().padStart(4, "0")}`;
+
+      const [insertedTx] = await db
+        .insert(schema.transactions)
+        .values({
+          invoiceNumber,
+          customerNameSnapshot: input.recipientName,
+          recipientName: input.recipientName,
+          recipientPhone: input.recipientPhone,
+          citySnapshot: input.city,
+          fullAddressSnapshot: input.fullAddress || null,
+          paymentStatus: input.paymentStatus,
+          shippingStatus: input.shippingStatus,
+          totalAmount,
+          notes: input.notes || null,
+        })
+        .returning();
+
+      const neonTxId = insertedTx.id;
+
+      for (const item of input.items) {
+        await db.insert(schema.transactionItems).values({
+          transactionId: insertedTx.id,
+          productId: item.productId,
+          variantId: item.variantId,
+          itemNameSnapshot: item.itemName,
+          unitPrice: item.unitPrice,
+          quantity: item.quantity,
+          subtotal: item.unitPrice * item.quantity,
+        });
+
+        await db
+          .update(schema.productVariants)
+          .set({
+            stockQuantity: sql`${schema.productVariants.stockQuantity} - ${item.quantity}`,
+          })
+          .where(eq(schema.productVariants.id, item.variantId));
+      }
+
+      return { success: true, invoiceNumber, transactionId: neonTxId };
+    } catch (err: any) {
+      console.error("Neon createTransaction failed:", err);
+      return { success: false, error: err.message || "Gagal menyimpan ke database" };
+    }
+  }
+
+  // --- PATH B: No DB → use local file store ---
   const store = readLocalStore();
 
-  // Validate stock
+  // Validate stock from local store
   for (const item of input.items) {
     let stockAvailable = 0;
     for (const p of store.products) {
       const v = p.variants.find((va) => va.id === item.variantId);
-      if (v) {
-        stockAvailable = v.stockQuantity;
-        break;
-      }
+      if (v) { stockAvailable = v.stockQuantity; break; }
     }
     if (item.quantity > stockAvailable) {
       return {
@@ -494,26 +1027,19 @@ export async function createTransaction(
     }
   }
 
-  // Deduct stock in store
+  // Deduct stock in local store
   for (const item of input.items) {
     for (const p of store.products) {
       const v = p.variants.find((va) => va.id === item.variantId);
-      if (v) {
-        v.stockQuantity -= item.quantity;
-        break;
-      }
+      if (v) { v.stockQuantity -= item.quantity; break; }
     }
   }
 
   const txId = store.nextIds.transaction++;
   const invoiceNumber = `KP-${yearMonth}-${txId.toString().padStart(4, "0")}`;
 
-  const customerName = input.recipientName;
-
-  let totalAmount = 0;
   const transactionItemsData: TransactionItemData[] = input.items.map((it) => {
     const subtotal = it.unitPrice * it.quantity;
-    totalAmount += subtotal;
     return {
       id: store.nextIds.transactionItem++,
       transactionId: txId,
@@ -529,7 +1055,7 @@ export async function createTransaction(
   const newTx: TransactionData = {
     id: txId,
     invoiceNumber,
-    customerNameSnapshot: customerName,
+    customerNameSnapshot: input.recipientName,
     recipientName: input.recipientName,
     recipientPhone: input.recipientPhone,
     citySnapshot: input.city,
@@ -544,50 +1070,6 @@ export async function createTransaction(
 
   store.transactions.unshift(newTx);
   writeLocalStore(store);
-
-  // Sync to Neon if configured
-  if (isDbConfigured) {
-    try {
-      await db.transaction(async (trx) => {
-        const [insertedTx] = await trx
-          .insert(schema.transactions)
-          .values({
-            invoiceNumber,
-            customerNameSnapshot: customerName,
-            recipientName: input.recipientName,
-            recipientPhone: input.recipientPhone,
-            citySnapshot: input.city,
-            fullAddressSnapshot: input.fullAddress || null,
-            paymentStatus: input.paymentStatus,
-            shippingStatus: input.shippingStatus,
-            totalAmount,
-            notes: input.notes || null,
-          })
-          .returning();
-
-        for (const item of input.items) {
-          await trx.insert(schema.transactionItems).values({
-            transactionId: insertedTx.id,
-            productId: item.productId,
-            variantId: item.variantId,
-            itemNameSnapshot: item.itemName,
-            unitPrice: item.unitPrice,
-            quantity: item.quantity,
-            subtotal: item.unitPrice * item.quantity,
-          });
-
-          await trx
-            .update(schema.productVariants)
-            .set({
-              stockQuantity: sql`${schema.productVariants.stockQuantity} - ${item.quantity}`,
-            })
-            .where(eq(schema.productVariants.id, item.variantId));
-        }
-      });
-    } catch (err) {
-      console.warn("Neon transaction insert error:", err);
-    }
-  }
 
   return { success: true, invoiceNumber, transactionId: txId };
 }
@@ -626,6 +1108,14 @@ export async function deleteTransaction(transactionId: number): Promise<{ succes
   }
 
   const tx = store.transactions[txIndex];
+
+  // Cegah penghapusan jika sudah Lunas dan Sudah Dikirim (Terkunci)
+  if (tx.paymentStatus === "Lunas" && tx.shippingStatus === "Sudah Dikirim") {
+    return {
+      success: false,
+      error: "Nota transaksi telah Lunas dan Selesai Dikirim sehingga berstatus arsip resmi dan tidak dapat dihapus demi integritas pembukuan.",
+    };
+  }
 
   // Rollback stock
   for (const item of tx.items) {

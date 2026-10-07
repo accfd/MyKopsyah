@@ -1,6 +1,6 @@
 export interface InitialProductSeed {
   name: string;
-  category: "Seragam" | "Buku" | "Aksesoris" | "Kain";
+  category: "Seragam" | "Buku" | "Aksesoris";
   hasVariants: boolean;
   unit: string;
   variants: {
@@ -11,92 +11,83 @@ export interface InitialProductSeed {
   }[];
 }
 
+// Data resmi berdasarkan Surat Edaran No. 001/KOP-SYAH/FKDT-SB/VI/2026
+// Koperasi Syariah FKDT Provinsi Sumatera Barat
 export const INITIAL_PRODUCTS: InitialProductSeed[] = [
+  // ── A. Batik Guru ─────────────────────────────────────────────
   {
-    name: "Baju Santri (Putra)",
+    name: "Batik Guru MDT (Nasional)",
     category: "Seragam",
-    hasVariants: true,
-    unit: "Stel",
-    variants: [
-      { variantName: "Ukuran 1", price: 75000, stockQuantity: 20, skuCode: "BSP-01" },
-      { variantName: "Ukuran 2", price: 78000, stockQuantity: 20, skuCode: "BSP-02" },
-      { variantName: "Ukuran 3", price: 82000, stockQuantity: 20, skuCode: "BSP-03" },
-      { variantName: "Ukuran 4", price: 85000, stockQuantity: 20, skuCode: "BSP-04" },
-      { variantName: "Ukuran 5", price: 89000, stockQuantity: 20, skuCode: "BSP-05" },
-      { variantName: "Ukuran 6", price: 93000, stockQuantity: 20, skuCode: "BSP-06" },
-      { variantName: "Ukuran 7", price: 98000, stockQuantity: 20, skuCode: "BSP-07" },
-      { variantName: "Ukuran 8", price: 103000, stockQuantity: 20, skuCode: "BSP-08" },
-      { variantName: "Ukuran 9", price: 110000, stockQuantity: 20, skuCode: "BSP-09" },
-      { variantName: "Ukuran 10", price: 120000, stockQuantity: 20, skuCode: "BSP-10" },
-    ],
-  },
-  {
-    name: "Baju Santriwati (Putri)",
-    category: "Seragam",
-    hasVariants: true,
-    unit: "Stel",
-    variants: [
-      { variantName: "Ukuran 1", price: 80000, stockQuantity: 20, skuCode: "BSW-01" },
-      { variantName: "Ukuran 2", price: 83000, stockQuantity: 20, skuCode: "BSW-02" },
-      { variantName: "Ukuran 3", price: 87000, stockQuantity: 20, skuCode: "BSW-03" },
-      { variantName: "Ukuran 4", price: 90000, stockQuantity: 20, skuCode: "BSW-04" },
-      { variantName: "Ukuran 5", price: 95000, stockQuantity: 20, skuCode: "BSW-05" },
-      { variantName: "Ukuran 6", price: 99000, stockQuantity: 20, skuCode: "BSW-06" },
-      { variantName: "Ukuran 7", price: 105000, stockQuantity: 20, skuCode: "BSW-07" },
-      { variantName: "Ukuran 8", price: 110000, stockQuantity: 20, skuCode: "BSW-08" },
-      { variantName: "Ukuran 9", price: 118000, stockQuantity: 20, skuCode: "BSW-09" },
-      { variantName: "Ukuran 10", price: 125000, stockQuantity: 20, skuCode: "BSW-10" },
-    ],
-  },
-  {
-    name: "Buku Santri Soleh",
-    category: "Buku",
-    hasVariants: true,
-    unit: "Pcs",
-    variants: [
-      { variantName: "Kelas 1 - Semester 1", price: 35000, stockQuantity: 30, skuCode: "BSS-1-1" },
-      { variantName: "Kelas 1 - Semester 2", price: 35000, stockQuantity: 30, skuCode: "BSS-1-2" },
-      { variantName: "Kelas 2 - Semester 1", price: 35000, stockQuantity: 30, skuCode: "BSS-2-1" },
-      { variantName: "Kelas 2 - Semester 2", price: 35000, stockQuantity: 30, skuCode: "BSS-2-2" },
-      { variantName: "Kelas 3 - Semester 1", price: 35000, stockQuantity: 30, skuCode: "BSS-3-1" },
-      { variantName: "Kelas 3 - Semester 2", price: 35000, stockQuantity: 30, skuCode: "BSS-3-2" },
-      { variantName: "Kelas 4 - Semester 1", price: 35000, stockQuantity: 30, skuCode: "BSS-4-1" },
-      { variantName: "Kelas 4 - Semester 2", price: 35000, stockQuantity: 30, skuCode: "BSS-4-2" },
-    ],
-  },
-  {
-    name: "Peci Santri",
-    category: "Aksesoris",
-    hasVariants: true,
-    unit: "Pcs",
-    variants: [
-      { variantName: "Ukuran 4", price: 45000, stockQuantity: 15, skuCode: "PCI-04" },
-      { variantName: "Ukuran 5", price: 45000, stockQuantity: 15, skuCode: "PCI-05" },
-      { variantName: "Ukuran 6", price: 45000, stockQuantity: 15, skuCode: "PCI-06" },
-      { variantName: "Ukuran 7", price: 45000, stockQuantity: 15, skuCode: "PCI-07" },
-      { variantName: "Ukuran 8", price: 45000, stockQuantity: 15, skuCode: "PCI-08" },
-      { variantName: "Ukuran 9", price: 45000, stockQuantity: 15, skuCode: "PCI-09" },
-    ],
-  },
-  {
-    name: "Jilbab Santriwati",
-    category: "Aksesoris",
-    hasVariants: true,
-    unit: "Pcs",
-    variants: [
-      { variantName: "Ukuran S", price: 55000, stockQuantity: 15, skuCode: "JLB-S" },
-      { variantName: "Ukuran M", price: 58000, stockQuantity: 15, skuCode: "JLB-M" },
-      { variantName: "Ukuran L", price: 62000, stockQuantity: 15, skuCode: "JLB-L" },
-      { variantName: "Ukuran XL", price: 65000, stockQuantity: 15, skuCode: "JLB-XL" },
-    ],
-  },
-  {
-    name: "Baju Dasar Batik Guru",
-    category: "Kain",
     hasVariants: false,
     unit: "Potong",
     variants: [
-      { variantName: "Standar (2.5 Meter)", price: 135000, stockQuantity: 50, skuCode: "BTK-GR" },
+      { variantName: "Standar", price: 115000, stockQuantity: 39, skuCode: "BTK-GR" },
+    ],
+  },
+
+  // ── B. Batik Santri MDTA ──────────────────────────────────────
+  // Harga ke Koperasi: Size 2-3 = 125.000 | Size 4-6 = 130.000 | Size 7-9 = 140.000 | Size 10+ = 150.000
+  {
+    name: "Batik Santri MDTA (Putra)",
+    category: "Seragam",
+    hasVariants: true,
+    unit: "Stel",
+    variants: [
+      { variantName: "Size 2",  price: 125000, stockQuantity: 15,  skuCode: "BSP-02" },
+      { variantName: "Size 3",  price: 125000, stockQuantity: 71,  skuCode: "BSP-03" },
+      { variantName: "Size 4",  price: 130000, stockQuantity: 80,  skuCode: "BSP-04" },
+      { variantName: "Size 5",  price: 130000, stockQuantity: 13,  skuCode: "BSP-05" },
+      { variantName: "Size 6",  price: 130000, stockQuantity: 0,   skuCode: "BSP-06" },
+      { variantName: "Size 7",  price: 140000, stockQuantity: 0,   skuCode: "BSP-07" },
+      { variantName: "Size 8",  price: 140000, stockQuantity: 0,   skuCode: "BSP-08" },
+      { variantName: "Size 9",  price: 140000, stockQuantity: 2,   skuCode: "BSP-09" },
+      { variantName: "Size 10", price: 150000, stockQuantity: 9,   skuCode: "BSP-10" },
+      { variantName: "Size 12", price: 150000, stockQuantity: 1,   skuCode: "BSP-12" },
+    ],
+  },
+  {
+    name: "Batik Santriwati MDTA (Putri)",
+    category: "Seragam",
+    hasVariants: true,
+    unit: "Stel",
+    variants: [
+      { variantName: "Size 2",  price: 125000, stockQuantity: 40,  skuCode: "BSW-02" },
+      { variantName: "Size 3",  price: 125000, stockQuantity: 92,  skuCode: "BSW-03" },
+      { variantName: "Size 4",  price: 130000, stockQuantity: 18,  skuCode: "BSW-04" },
+      { variantName: "Size 5",  price: 130000, stockQuantity: 36,  skuCode: "BSW-05" },
+      { variantName: "Size 6",  price: 130000, stockQuantity: 0,   skuCode: "BSW-06" },
+      { variantName: "Size 7",  price: 140000, stockQuantity: 0,   skuCode: "BSW-07" },
+      { variantName: "Size 8",  price: 140000, stockQuantity: 2,   skuCode: "BSW-08" },
+      { variantName: "Size 9",  price: 140000, stockQuantity: 0,   skuCode: "BSW-09" },
+      { variantName: "Size 10", price: 150000, stockQuantity: 0,   skuCode: "BSW-10" },
+      { variantName: "Size 12", price: 150000, stockQuantity: 0,   skuCode: "BSW-12" },
+    ],
+  },
+
+  // ── C. Modul Santri Shaleh dan Pintar (8 Buku Fisik) ─────────
+  // Harga ke Koperasi: Rp 24.000 / buku
+  {
+    name: "Modul Santri Shaleh & Pintar (Semester 1)",
+    category: "Buku",
+    hasVariants: true,
+    unit: "Eks",
+    variants: [
+      { variantName: "Kelas 1", price: 24000, stockQuantity: 0, skuCode: "MOD-S1-K1" },
+      { variantName: "Kelas 2", price: 24000, stockQuantity: 0, skuCode: "MOD-S1-K2" },
+      { variantName: "Kelas 3", price: 24000, stockQuantity: 0, skuCode: "MOD-S1-K3" },
+      { variantName: "Kelas 4", price: 24000, stockQuantity: 0, skuCode: "MOD-S1-K4" },
+    ],
+  },
+  {
+    name: "Modul Santri Shaleh & Pintar (Semester 2)",
+    category: "Buku",
+    hasVariants: true,
+    unit: "Eks",
+    variants: [
+      { variantName: "Kelas 1", price: 24000, stockQuantity: 0, skuCode: "MOD-S2-K1" },
+      { variantName: "Kelas 2", price: 24000, stockQuantity: 0, skuCode: "MOD-S2-K2" },
+      { variantName: "Kelas 3", price: 24000, stockQuantity: 0, skuCode: "MOD-S2-K3" },
+      { variantName: "Kelas 4", price: 24000, stockQuantity: 0, skuCode: "MOD-S2-K4" },
     ],
   },
 ];

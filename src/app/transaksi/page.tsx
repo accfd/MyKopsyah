@@ -18,10 +18,7 @@ export default async function TransaksiPage() {
     <AdminShell>
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Daftar Nota Penjualan</h2>
-          <p className="text-sm text-slate-600">
-            Kelola status pembayaran (lunas/belum) dan status pengiriman paket.
-          </p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Nota Penjualan</h2>
         </div>
 
         <TransaksiList transactions={transactions} />

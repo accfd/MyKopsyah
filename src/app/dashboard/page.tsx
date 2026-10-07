@@ -4,7 +4,6 @@ import { isAuthenticated } from "@/lib/auth";
 import { getTransactions, getProductsWithVariants } from "@/lib/data-service";
 import { formatRupiah, formatTanggal } from "@/lib/format";
 import AdminShell from "@/components/AdminShell";
-import CopyStockLinkBtn from "@/components/CopyStockLinkBtn";
 import {
   Banknote,
   ClockAlert,
@@ -65,30 +64,15 @@ export default async function DashboardPage() {
         {/* Welcome & Actions Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Dasbor Kopsyah</h2>
-            <p className="text-sm text-slate-600">
-              Ringkasan kas, pesanan tertunda, dan peringatan stok barang.
-            </p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Dasbor Utama</h2>
           </div>
           <Link
             href="/transaksi/baru"
             className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-md transition-all active:scale-98"
           >
             <PlusCircle className="w-5 h-5" />
-            <span>+ Catat Penjualan Baru</span>
+            <span>Catat Penjualan Baru</span>
           </Link>
-        </div>
-
-        {/* Banner Salin Link Stok WhatsApp */}
-        <div className="bg-gradient-to-r from-emerald-800 to-emerald-900 rounded-2xl p-5 sm:p-6 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <h3 className="text-lg font-bold">📲 Pelanggan Bertanya Stok Barang di WhatsApp?</h3>
-            <p className="text-sm text-emerald-100 max-w-xl">
-              Tidak perlu repot cek fisik ke gudang satu per satu. Salin tautan katalog stok publik
-              dan langsung tempelkan ke ruang obrolan pelanggan!
-            </p>
-          </div>
-          <CopyStockLinkBtn />
         </div>
 
         {/* 3 Kartu Metrik Utama */}
@@ -172,7 +156,7 @@ export default async function DashboardPage() {
               href="/produk"
               className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
             >
-              <span>+ Input Stok Masuk</span>
+              <span>Input Stok Masuk</span>
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -215,7 +199,7 @@ export default async function DashboardPage() {
                           href="/produk"
                           className="px-3 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg inline-block"
                         >
-                          + Tambah Stok
+                          Tambah Stok
                         </Link>
                       </td>
                     </tr>

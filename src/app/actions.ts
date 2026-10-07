@@ -9,6 +9,7 @@ import {
   updateTransactionStatus,
   deleteTransaction,
   addStockEntry,
+  addBatchStockEntries,
   updateVariantPrice,
 } from "@/lib/data-service";
 
@@ -106,6 +107,27 @@ export async function submitStockEntryAction(
   return result;
 }
 
+export async function submitBatchStockEntryAction(
+  items: { variantId: number; quantityAdded: number }[],
+  notes?: string
+) {
+  const auth = await isAuthenticated();
+  if (!auth) return { success: false, error: "Unauthorized" };
+
+  const validItems = items.filter((it) => it.quantityAdded > 0);
+  if (validItems.length === 0) {
+    return { success: false, error: "Tidak ada jumlah barang masuk yang diisi." };
+  }
+
+  const result = await addBatchStockEntries(validItems, notes);
+  if (result.success) {
+    revalidatePath("/produk");
+    revalidatePath("/stok");
+    revalidatePath("/dashboard");
+  }
+  return result;
+}
+
 export async function submitUpdatePriceAction(variantId: number, price: number) {
   const auth = await isAuthenticated();
   if (!auth) return { success: false, error: "Unauthorized" };
@@ -117,3 +139,49 @@ export async function submitUpdatePriceAction(variantId: number, price: number) 
   }
   return { success };
 }
+
+export async function createProductAction(input: any) {
+  const auth = await isAuthenticated();
+  if (!auth) return { success: false, error: "Unauthorized" };
+
+  const { createProduct } = await import("@/lib/data-service");
+  const result = await createProduct(input);
+  if (result.success) {
+    revalidatePath("/produk");
+    revalidatePath("/transaksi/baru");
+    revalidatePath("/stok");
+    revalidatePath("/dashboard");
+  }
+  return result;
+}
+
+export async function submitStockAdjustmentAction(items: any[], notes?: string) {
+  const auth = await isAuthenticated();
+  if (!auth) return { success: false, error: "Unauthorized" };
+
+  const { processStockAdjustment } = await import("@/lib/data-service");
+  const result = await processStockAdjustment(items, notes);
+  if (result.success) {
+    revalidatePath("/produk");
+    revalidatePath("/stok");
+    revalidatePath("/dashboard");
+    revalidatePath("/transaksi/baru");
+  }
+  return result;
+}
+
+export async function updateProductAction(productId: number, input: any) {
+  const auth = await isAuthenticated();
+  if (!auth) return { success: false, error: "Unauthorized" };
+
+  const { updateProduct } = await import("@/lib/data-service");
+  const result = await updateProduct(productId, input);
+  if (result.success) {
+    revalidatePath("/produk");
+    revalidatePath("/transaksi/baru");
+    revalidatePath("/dashboard");
+    revalidatePath(`/produk/edit/${productId}`);
+  }
+  return result;
+}
+

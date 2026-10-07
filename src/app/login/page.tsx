@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Image from "next/image";
 import { loginAction } from "@/app/actions";
-import { Store, KeyRound, ArrowRight, ShieldCheck, Eye, EyeOff } from "lucide-react";
+import { KeyRound, ArrowRight, ShieldCheck, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(loginAction, null);
@@ -12,8 +13,14 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-b from-emerald-900 to-emerald-800 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 sm:p-8 border border-emerald-100">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-emerald-100 rounded-2xl mx-auto flex items-center justify-center text-emerald-700 mb-3 shadow-inner">
-            <Store className="w-9 h-9" />
+          <div className="w-20 h-20 bg-white rounded-2xl mx-auto flex items-center justify-center p-2 mb-3 shadow-md border border-emerald-100 overflow-hidden">
+            <Image
+              src="/logo-kopsyah.png"
+              alt="Logo Koperasi Indonesia"
+              width={72}
+              height={72}
+              className="w-full h-full object-contain"
+            />
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Masuk MyKopsyah</h1>
           <p className="text-sm text-slate-600 mt-1">Sistem Stok &amp; Penjualan Koperasi Syariah</p>

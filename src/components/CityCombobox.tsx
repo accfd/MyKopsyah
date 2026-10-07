@@ -76,7 +76,7 @@ export default function CityCombobox({ value, onChange, required = false }: City
   return (
     <div className="space-y-2" ref={containerRef}>
       <label className="block text-sm font-semibold text-slate-800">
-        Kota / Kabupaten Tujuan (Sumatera Barat) <span className="text-rose-500">*</span>:
+        Kota / Kabupaten Tujuan (Sumatera Barat) <span className="text-rose-500">*</span>
       </label>
 
       <div className="relative">

@@ -4,7 +4,7 @@ import { relations } from "drizzle-orm";
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
-  category: varchar("category", { length: 50 }).notNull(), // Seragam, Buku, Aksesoris, Kain
+  category: varchar("category", { length: 50 }).notNull(), // Seragam, Buku, Aksesoris
   hasVariants: boolean("has_variants").default(true).notNull(),
   unit: varchar("unit", { length: 20 }).default("Pcs").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

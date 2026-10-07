@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { isAuthenticated } from "@/lib/auth";
-import { getProductsWithVariants } from "@/lib/data-service";
+import { getProductsWithVariants, getTransactions } from "@/lib/data-service";
 import AdminShell from "@/components/AdminShell";
 import KasirForm from "./KasirForm";
 import Link from "next/link";
@@ -14,7 +14,24 @@ export default async function TransaksiBaruPage() {
     redirect("/login");
   }
 
-  const products = await getProductsWithVariants();
+  const [products, transactions] = await Promise.all([
+    getProductsWithVariants(),
+    getTransactions(),
+  ]);
+
+  const customerMap = new Map<string, { name: string; phone: string; city: string; address?: string | null }>();
+  for (const tx of transactions) {
+    const name = (tx.recipientName || tx.customerNameSnapshot || "").trim();
+    if (name && !customerMap.has(name.toLowerCase())) {
+      customerMap.set(name.toLowerCase(), {
+        name,
+        phone: tx.recipientPhone || "",
+        city: tx.citySnapshot || "",
+        address: tx.fullAddressSnapshot || "",
+      });
+    }
+  }
+  const pastCustomers = Array.from(customerMap.values());
 
   return (
     <AdminShell>
@@ -27,14 +44,11 @@ export default async function TransaksiBaruPage() {
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Catat Penjualan Baru (Kasir)</h2>
-            <p className="text-sm text-slate-600">
-              Pilih produk santri, tentukan ukuran, dan simpan nota transaksi.
-            </p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Kasir Penjualan</h2>
           </div>
         </div>
 
-        <KasirForm products={products} />
+        <KasirForm products={products} pastCustomers={pastCustomers} />
       </div>
     </AdminShell>
   );
