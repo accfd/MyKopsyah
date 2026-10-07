@@ -25,7 +25,9 @@ export default function PublicStokClient({ products }: { products: ProductData[]
       );
     });
 
-  const adminPhone = process.env.NEXT_PUBLIC_ADMIN_WA || "628123456789";
+  const rawAdminPhone = process.env.NEXT_PUBLIC_ADMIN_WA || "089561914774";
+  const cleanPhone = rawAdminPhone.replace(/\D/g, "");
+  const adminPhone = cleanPhone.startsWith("0") ? `62${cleanPhone.slice(1)}` : cleanPhone;
   const waLink = `https://wa.me/${adminPhone}?text=${encodeURIComponent(
     "Assalamu'alaikum Admin Kopsyah, saya ingin menanyakan ketersediaan pesanan barang perlengkapan santri..."
   )}`;
